@@ -2,12 +2,15 @@ const express = require("express")
 const { body, validationResult } = require("express-validator")
 const User = require("../models/User")
 const { auth, authorize } = require("../middleware/auth")
+const { getDashboard } = require("../controllers/dashboard.controller")
 
 const router = express.Router()
 
-// @route   GET /api/users/profile
-// @desc    Get current user profile
-// @access  Private
+/* ===========================
+   PROFILE
+=========================== */
+
+// GET /api/users/profile
 router.get("/profile", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
@@ -34,9 +37,7 @@ router.get("/profile", auth, async (req, res) => {
   }
 })
 
-// @route   PUT /api/users/profile
-// @desc    Update user profile
-// @access  Private
+// PUT /api/users/profile
 router.put(
   "/profile",
   [
@@ -58,7 +59,15 @@ router.put(
         })
       }
 
-      const allowedUpdates = ["firstName", "lastName", "bio", "location", "website", "socialLinks", "preferences"]
+      const allowedUpdates = [
+        "firstName",
+        "lastName",
+        "bio",
+        "location",
+        "website",
+        "socialLinks",
+        "preferences",
+      ]
 
       const updates = {}
       Object.keys(req.body).forEach((key) => {
@@ -84,12 +93,21 @@ router.put(
         message: "Server error",
       })
     }
-  },
+  }
 )
 
-// @route   POST /api/users/avatar
-// @desc    Upload user avatar
-// @access  Private
+/* ===========================
+   DASHBOARD
+=========================== */
+
+// GET /api/users/dashboard
+router.get("/dashboard", auth, getDashboard)
+
+/* ===========================
+   AVATAR
+=========================== */
+
+// POST /api/users/avatar
 router.post("/avatar", auth, async (req, res) => {
   try {
     const { avatar } = req.body
@@ -101,7 +119,11 @@ router.post("/avatar", auth, async (req, res) => {
       })
     }
 
-    const user = await User.findByIdAndUpdate(req.user._id, { avatar }, { new: true }).select("-password")
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar },
+      { new: true }
+    ).select("-password")
 
     res.json({
       success: true,
@@ -117,9 +139,11 @@ router.post("/avatar", auth, async (req, res) => {
   }
 })
 
-// @route   GET /api/users/leaderboard
-// @desc    Get user leaderboard
-// @access  Public
+/* ===========================
+   LEADERBOARD
+=========================== */
+
+// GET /api/users/leaderboard
 router.get("/leaderboard", async (req, res) => {
   try {
     const { limit = 10, page = 1 } = req.query
@@ -136,7 +160,7 @@ router.get("/leaderboard", async (req, res) => {
       success: true,
       users,
       pagination: {
-        current: page,
+        current: Number(page),
         pages: Math.ceil(total / limit),
         total,
       },
@@ -150,9 +174,11 @@ router.get("/leaderboard", async (req, res) => {
   }
 })
 
-// @route   POST /api/users/add-xp
-// @desc    Add XP to user (internal use)
-// @access  Private
+/* ===========================
+   XP SYSTEM
+=========================== */
+
+// POST /api/users/add-xp
 router.post("/add-xp", auth, async (req, res) => {
   try {
     const { points, reason } = req.body
@@ -170,16 +196,12 @@ router.post("/add-xp", auth, async (req, res) => {
     user.xp += points
     await user.save()
 
-    const newLevel = user.level
-    const leveledUp = newLevel > oldLevel
-
     res.json({
       success: true,
       message: `Added ${points} XP${reason ? ` for ${reason}` : ""}`,
       xp: user.xp,
       level: user.level,
-      leveledUp,
-      pointsAdded: points,
+      leveledUp: user.level > oldLevel,
     })
   } catch (error) {
     console.error("Add XP error:", error)
@@ -190,230 +212,34 @@ router.post("/add-xp", auth, async (req, res) => {
   }
 })
 
-// @route   GET /api/users/stats
-// @desc    Get user statistics
-// @access  Private
-router.get("/stats", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).populate("enrolledCourses.course", "title category")
+/* ===========================
+   ADMIN
+=========================== */
 
-    const stats = {
-      totalXP: user.xp,
-      currentLevel: user.level,
-      coursesEnrolled: user.enrolledCourses.length,
-      coursesCompleted: user.coursesCompleted,
-      totalLearningHours: user.totalLearningHours,
-      currentStreak: user.currentStreak,
-      longestStreak: user.longestStreak,
-      badgesEarned: user.badges.length,
-      skillsLearned: user.skills.length,
-      progressToNextLevel: user.progressToNextLevel,
-    }
-
-    res.json({
-      success: true,
-      stats,
-    })
-  } catch (error) {
-    console.error("Get stats error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
-  }
-})
-
-// @route   GET /api/users
-// @desc    Get all users (Admin only)
-// @access  Private/Admin
+// GET /api/users (Admin)
 router.get("/", [auth, authorize("admin")], async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, role, isActive } = req.query
+    const { page = 1, limit = 10 } = req.query
 
-    const query = {}
-
-    if (search) {
-      query.$or = [
-        { firstName: { $regex: search, $options: "i" } },
-        { lastName: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ]
-    }
-
-    if (role) {
-      query.role = role
-    }
-
-    if (isActive !== undefined) {
-      query.isActive = isActive === "true"
-    }
-
-    const users = await User.find(query)
+    const users = await User.find()
       .select("-password")
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
 
-    const total = await User.countDocuments(query)
+    const total = await User.countDocuments()
 
     res.json({
       success: true,
       users,
       pagination: {
-        current: Number.parseInt(page),
+        current: Number(page),
         pages: Math.ceil(total / limit),
         total,
       },
     })
   } catch (error) {
     console.error("Get users error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
-  }
-})
-
-// @route   GET /api/users/dashboard
-// @desc    Get dashboard data
-// @access  Private
-router.get("/dashboard", auth, async (req, res) => {
-  try {
-    // 1️⃣ Fetch user
-    const user = await User.findById(req.user._id)
-      .populate("enrolledCourses.course", "title thumbnail")
-      .select(
-        "firstName lastName avatar xp level skills badges enrolledCourses coursesCompleted"
-      )
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
-    }
-
-    // 2️⃣ Stats (cheap calculations only)
-    const stats = {
-      coursesEnrolled: user.enrolledCourses.length,
-      coursesCompleted: user.coursesCompleted,
-      skillsLearned: user.skills.length,
-      totalEarnings: 0, // placeholder
-      communityPosts: 0, // placeholder
-      projectsCompleted: 0, // placeholder
-    }
-
-    // 3️⃣ Recent courses
-    const recentCourses = user.enrolledCourses
-      .slice(-3)
-      .map((item) => ({
-        _id: item.course?._id,
-        title: item.course?.title,
-        progress: item.progress,
-        nextLesson: "Continue learning",
-      }))
-
-    // 4️⃣ Achievements
-    const achievements = user.badges.slice(-3)
-
-    // 5️⃣ Final response
-    res.json({
-      success: true,
-      data: {
-        stats,
-        recentCourses,
-        recentProjects: [],
-        upcomingEvents: [],
-        achievements,
-      },
-    })
-  } catch (error) {
-    console.error("Dashboard error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Failed to load dashboard",
-    })
-  }
-})
-
-
-// @route   PUT /api/users/:id/role
-// @desc    Update user role (Admin only)
-// @access  Private/Admin
-router.put(
-  "/:id/role",
-  [auth, authorize("admin"), body("role").isIn(["student", "instructor", "admin"])],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req)
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation failed",
-          errors: errors.array(),
-        })
-      }
-
-      const { role } = req.body
-      const userId = req.params.id
-
-      const user = await User.findByIdAndUpdate(userId, { role }, { new: true }).select("-password")
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        })
-      }
-
-      res.json({
-        success: true,
-        message: "User role updated successfully",
-        user,
-      })
-    } catch (error) {
-      console.error("Update user role error:", error)
-      res.status(500).json({
-        success: false,
-        message: "Server error",
-      })
-    }
-  },
-)
-
-// @route   PUT /api/users/:id/status
-// @desc    Update user status (Admin only)
-// @access  Private/Admin
-router.put("/:id/status", [auth, authorize("admin"), body("isActive").isBoolean()], async (req, res) => {
-  try {
-    const errors = validationResult(req)
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: errors.array(),
-      })
-    }
-
-    const { isActive } = req.body
-    const userId = req.params.id
-
-    const user = await User.findByIdAndUpdate(userId, { isActive }, { new: true }).select("-password")
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
-    }
-
-    res.json({
-      success: true,
-      message: `User ${isActive ? "activated" : "deactivated"} successfully`,
-      user,
-    })
-  } catch (error) {
-    console.error("Update user status error:", error)
     res.status(500).json({
       success: false,
       message: "Server error",

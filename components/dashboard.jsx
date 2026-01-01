@@ -47,52 +47,16 @@ export default function Dashboard() {
       console.error("Dashboard API failed, using fallback")
     }
 
-    // SAFE fallback demo data
-    setDashboardData({
-      stats: {
-        coursesEnrolled: 3,
-        coursesCompleted: 1,
-        totalEarnings: 1250,
-        communityPosts: 12,
-        skillsLearned: 8,
-        projectsCompleted: 2,
-      },
-      recentCourses: [
-        {
-          _id: 1,
-          title: "Advanced React Development",
-          progress: 75,
-          nextLesson: "State Management with Redux",
-        },
-      ],
-      recentProjects: [
-        {
-          _id: 1,
-          title: "E-commerce Website Development",
-          status: "In Progress",
-          budget: 2500,
-          client: { name: "TechStart Inc." },
-        },
-      ],
-      upcomingEvents: [
-        {
-          _id: 1,
-          title: "Web Development Bootcamp",
-          date: "2024-02-10",
-          time: "10:00 AM",
-          type: "Workshop",
-        },
-      ],
-      achievements: [
-        {
-          _id: 1,
-          title: "First Course Completed",
-          description: "Completed your first course on FusionBridge",
-          icon: "🎓",
-          earnedAt: "2024-01-15",
-        },
-      ],
-    })
+    // deletd SAFE fallback demo data
+    // added real fetch data
+
+  const fetchDashboardData = async () => {
+  const response = await apiService.getUserDashboard()
+  setDashboardData(response.data)
+  setLoading(false)
+}
+
+    
 
     setLoading(false)
   }

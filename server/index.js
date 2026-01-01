@@ -6,8 +6,10 @@ const rateLimit = require("express-rate-limit")
 const compression = require("compression")
 const morgan = require("morgan")
 require("dotenv").config()
+const dashboardRoutes = require("./routes/dashboard")
 
 const app = express()
+app.use("/api/dashboard", dashboardRoutes)
 
 // Security middleware
 app.use(helmet())
