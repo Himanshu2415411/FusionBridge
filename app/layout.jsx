@@ -9,16 +9,6 @@ export const metadata = {
   title: "FusionBridge - Bridge Your Future",
   description:
     "Learn, Grow, Earn, and Connect with FusionBridge - The ultimate platform for students and professionals.",
-  keywords: "education, learning, career development, freelancing, community",
-  authors: [{ name: "FusionBridge Team" }],
-  creator: "FusionBridge",
-  publisher: "FusionBridge",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  generator: "v0.dev",
 }
 
 export default function RootLayout({ children }) {
@@ -26,9 +16,15 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
         <Providers>
-          <div className="min-h-screen bg-white dark:bg-[#121212] transition-colors duration-500">
+          {/* App shell locked to viewport */}
+          <div className="h-screen overflow-hidden bg-white dark:bg-[#121212] transition-colors duration-500">
+            {/* Top header (non-scrollable) */}
             <Header />
-            <main className="flex-1">{children}</main>
+
+            {/* Content area below header */}
+            <div className="h-[calc(100vh-64px)]">
+              {children}
+            </div>
           </div>
         </Providers>
       </body>

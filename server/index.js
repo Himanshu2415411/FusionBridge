@@ -1,4 +1,5 @@
 const express = require("express")
+require("./models")
 const mongoose = require("mongoose")
 const cors = require("cors")
 const helmet = require("helmet")
@@ -10,6 +11,11 @@ const dashboardRoutes = require("./routes/dashboard")
 
 const app = express()
 app.use("/api/dashboard", dashboardRoutes)
+
+require("dotenv").config()
+const connectDB = require("./config/database")
+
+connectDB()
 
 // Security middleware
 app.use(helmet())
