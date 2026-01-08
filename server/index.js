@@ -8,6 +8,8 @@ const compression = require("compression")
 const morgan = require("morgan")
 require("dotenv").config()
 const dashboardRoutes = require("./routes/dashboard")
+const progressRoutes = require("./routes/progress")
+
 
 const app = express()
 app.use("/api/dashboard", dashboardRoutes)
@@ -19,6 +21,9 @@ connectDB()
 
 // Security middleware
 app.use(helmet())
+
+app.use("/api/progress", progressRoutes)
+
 
 // Rate limiting
 const limiter = rateLimit({

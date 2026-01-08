@@ -17,19 +17,29 @@ router.get("/", optionalAuth, async (req, res) => {
 
     if (req.user) {
       const user = await User.findById(req.user._id)
+
       courses.forEach(course => {
         const enrollment = user.enrolledCourses.find(
           ec => ec.course.toString() === course._id.toString()
         )
+
         course._doc.isEnrolled = !!enrollment
-        course._doc.progress = enrollment ? enrollment.progress : 0
+
+        if (enrollment) {
+          const totalLessons = course.totalLessons || 0
+          const completed = enrollment.completedLessons.length
+
+          course._doc.progress =
+            totalLessons === 0
+              ? 0
+              : Math.round((completed / totalLessons) * 100)
+        } else {
+          course._doc.progress = 0
+        }
       })
     }
 
-    res.json({
-      success: true,
-      courses,
-    })
+    res.json({ success: true, courses })
   } catch (error) {
     console.error("Get courses error:", error)
     res.status(500).json({ success: false, message: "Server error" })
@@ -53,14 +63,28 @@ router.get("/:id", optionalAuth, async (req, res) => {
 
     let isEnrolled = false
     let progress = 0
+    let completed = false
 
     if (req.user) {
       const user = await User.findById(req.user._id)
       const enrollment = user.enrolledCourses.find(
         ec => ec.course.toString() === course._id.toString()
       )
-      isEnrolled = !!enrollment
-      progress = enrollment ? enrollment.progress : 0
+
+      if (enrollment) {
+        isEnrolled = true
+
+        const totalLessons = course.totalLessons || 0
+        const completedCount = enrollment.completedLessons.length
+
+        progress =
+          totalLessons === 0
+            ? 0
+            : Math.round((completedCount / totalLessons) * 100)
+
+        completed =
+          totalLessons > 0 && completedCount === totalLessons
+      }
     }
 
     res.json({
@@ -69,6 +93,7 @@ router.get("/:id", optionalAuth, async (req, res) => {
         ...course._doc,
         isEnrolled,
         progress,
+        completed,
       },
     })
   } catch (error) {
@@ -105,8 +130,8 @@ router.post("/:id/enroll", auth, async (req, res) => {
 
     user.enrolledCourses.push({
       course: course._id,
-      enrolledAt: new Date(),
-      progress: 0,
+      completedLessons: [],
+      lastAccessedLesson: null,
     })
 
     course.studentsEnrolled += 1
@@ -127,49 +152,14 @@ router.post("/:id/enroll", auth, async (req, res) => {
 
 /* ===========================
    PUT /api/courses/:id/progress
+   ❌ DEPRECATED (Phase 7)
    =========================== */
 router.put("/:id/progress", auth, async (req, res) => {
-  try {
-    const { progress } = req.body
-
-    if (progress < 0 || progress > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Progress must be between 0 and 100",
-      })
-    }
-
-    const user = await User.findById(req.user._id)
-    const enrollment = user.enrolledCourses.find(
-      ec => ec.course.toString() === req.params.id
-    )
-
-    if (!enrollment) {
-      return res.status(400).json({
-        success: false,
-        message: "Not enrolled in this course",
-      })
-    }
-
-    enrollment.progress = progress
-
-    if (progress === 100 && !enrollment.completed) {
-      enrollment.completed = true
-      enrollment.completedAt = new Date()
-      user.coursesCompleted += 1
-    }
-
-    await user.save()
-
-    res.json({
-      success: true,
-      message: "Progress updated",
-      progress,
-    })
-  } catch (error) {
-    console.error("Progress error:", error)
-    res.status(500).json({ success: false, message: "Server error" })
-  }
+  return res.status(410).json({
+    success: false,
+    message:
+      "Percentage-based progress is deprecated. Use lesson progress API.",
+  })
 })
 
 /* ===========================

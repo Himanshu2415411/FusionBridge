@@ -1,5 +1,8 @@
 const mongoose = require("mongoose")
 
+/* ===========================
+   Lesson Schema
+   =========================== */
 const lessonSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -15,8 +18,8 @@ const lessonSchema = new mongoose.Schema({
     required: true,
   },
   duration: {
-    type: Number, // in minutes
-    required: true,
+    type: Number,
+    required: true, // minutes
   },
   resources: [
     {
@@ -38,6 +41,9 @@ const lessonSchema = new mongoose.Schema({
   },
 })
 
+/* ===========================
+   Section Schema
+   =========================== */
 const sectionSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -52,6 +58,9 @@ const sectionSchema = new mongoose.Schema({
   },
 })
 
+/* ===========================
+   Review Schema
+   =========================== */
 const reviewSchema = new mongoose.Schema(
   {
     user: {
@@ -71,27 +80,28 @@ const reviewSchema = new mongoose.Schema(
       maxlength: 500,
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true }
 )
 
+/* ===========================
+   Course Schema
+   =========================== */
 const courseSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: [true, "Course title is required"],
+      required: true,
       trim: true,
-      maxlength: [100, "Title cannot exceed 100 characters"],
+      maxlength: 100,
     },
     description: {
       type: String,
-      required: [true, "Course description is required"],
-      maxlength: [1000, "Description cannot exceed 1000 characters"],
+      required: true,
+      maxlength: 1000,
     },
     shortDescription: {
       type: String,
-      maxlength: [200, "Short description cannot exceed 200 characters"],
+      maxlength: 200,
     },
     thumbnail: {
       type: String,
@@ -104,7 +114,7 @@ const courseSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      required: [true, "Course category is required"],
+      required: true,
       enum: [
         "Web Development",
         "Mobile Development",
@@ -122,48 +132,33 @@ const courseSchema = new mongoose.Schema(
     },
     level: {
       type: String,
-      required: [true, "Course level is required"],
+      required: true,
       enum: ["beginner", "intermediate", "advanced"],
     },
     price: {
       type: Number,
-      required: [true, "Course price is required"],
-      min: [0, "Price cannot be negative"],
+      required: true,
+      min: 0,
     },
     originalPrice: {
       type: Number,
-      min: [0, "Original price cannot be negative"],
+      min: 0,
     },
     currency: {
       type: String,
       default: "USD",
     },
     duration: {
-      type: Number, // in hours
+      type: Number, // hours (marketing)
       required: true,
     },
     language: {
       type: String,
       default: "English",
     },
-    tags: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
-    requirements: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
-    whatYouWillLearn: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    tags: [{ type: String, trim: true }],
+    requirements: [{ type: String, trim: true }],
+    whatYouWillLearn: [{ type: String, trim: true }],
     curriculum: [sectionSchema],
     studentsEnrolled: {
       type: Number,
@@ -197,43 +192,68 @@ const courseSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  },
+  }
 )
 
-// Virtual for total lessons count
+/* ===========================
+   SAFE VIRTUALS
+   =========================== */
+
+// Total lessons (defensive)
 courseSchema.virtual("totalLessons").get(function () {
-  return this.curriculum.reduce((total, section) => total + section.lessons.length, 0)
+  if (!Array.isArray(this.curriculum)) return 0
+
+  return this.curriculum.reduce((total, section) => {
+    if (!Array.isArray(section.lessons)) return total
+    return total + section.lessons.length
+  }, 0)
 })
 
-// Virtual for total duration in minutes
+// Total duration in minutes (defensive)
 courseSchema.virtual("totalDurationMinutes").get(function () {
-  return this.curriculum.reduce(
-    (total, section) => total + section.lessons.reduce((sectionTotal, lesson) => sectionTotal + lesson.duration, 0),
-    0,
-  )
+  if (!Array.isArray(this.curriculum)) return 0
+
+  return this.curriculum.reduce((total, section) => {
+    if (!Array.isArray(section.lessons)) return total
+
+    return (
+      total +
+      section.lessons.reduce(
+        (sectionTotal, lesson) =>
+          sectionTotal + (lesson.duration || 0),
+        0
+      )
+    )
+  }, 0)
 })
 
-// Virtual for review count
+// Review count
 courseSchema.virtual("reviewCount").get(function () {
-  return this.reviews.length
+  return Array.isArray(this.reviews) ? this.reviews.length : 0
 })
 
-// Virtual for discount percentage
+// Discount percentage
 courseSchema.virtual("discountPercentage").get(function () {
   if (this.originalPrice && this.originalPrice > this.price) {
-    return Math.round(((this.originalPrice - this.price) / this.originalPrice) * 100)
+    return Math.round(
+      ((this.originalPrice - this.price) / this.originalPrice) * 100
+    )
   }
   return 0
 })
 
-// Index for better search performance
+/* ===========================
+   Indexes
+   =========================== */
 courseSchema.index({ title: "text", description: "text", tags: "text" })
 courseSchema.index({ category: 1, level: 1 })
 courseSchema.index({ averageRating: -1, studentsEnrolled: -1 })
 courseSchema.index({ instructor: 1 })
 courseSchema.index({ isPublished: 1, featured: -1 })
 
-// Pre-save middleware to update lastUpdated
+/* ===========================
+   Middleware
+   =========================== */
 courseSchema.pre("save", function (next) {
   if (this.isModified() && !this.isNew) {
     this.lastUpdated = new Date()
@@ -241,18 +261,26 @@ courseSchema.pre("save", function (next) {
   next()
 })
 
-// Method to calculate average rating
+/* ===========================
+   Methods
+   =========================== */
 courseSchema.methods.calculateAverageRating = function () {
-  if (this.reviews.length === 0) {
+  if (!this.reviews || this.reviews.length === 0) {
     this.averageRating = 0
   } else {
-    const sum = this.reviews.reduce((total, review) => total + review.rating, 0)
-    this.averageRating = Math.round((sum / this.reviews.length) * 10) / 10
+    const sum = this.reviews.reduce(
+      (total, review) => total + review.rating,
+      0
+    )
+    this.averageRating =
+      Math.round((sum / this.reviews.length) * 10) / 10
   }
   return this.averageRating
 }
 
-// Static method to get popular courses
+/* ===========================
+   Statics
+   =========================== */
 courseSchema.statics.getPopularCourses = function (limit = 10) {
   return this.find({ isPublished: true })
     .sort({ studentsEnrolled: -1, averageRating: -1 })
@@ -260,7 +288,6 @@ courseSchema.statics.getPopularCourses = function (limit = 10) {
     .populate("instructor", "firstName lastName avatar")
 }
 
-// Static method to get featured courses
 courseSchema.statics.getFeaturedCourses = function (limit = 6) {
   return this.find({ isPublished: true, featured: true })
     .sort({ createdAt: -1 })

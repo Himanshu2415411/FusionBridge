@@ -136,26 +136,27 @@ const userSchema = new mongoose.Schema(
       default: Date.now,
     },
     enrolledCourses: [
+  {
+    course: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Course",
+      required: true
+    },
+    completedLessons: [
       {
-        course: {
-          type: mongoose.Schema.ObjectId,
-          ref: "Course",
-        },
-        enrolledAt: {
-          type: Date,
-          default: Date.now,
-        },
-        progress: {
-          type: Number,
-          default: 0,
-        },
-        completed: {
-          type: Boolean,
-          default: false,
-        },
-        completedAt: Date,
-      },
+        type: mongoose.Schema.Types.ObjectId
+      }
     ],
+    lastAccessedLesson: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null
+    },
+    enrolledAt: {
+      type: Date,
+      default: Date.now
+    }
+  }
+],
   },
   {
     timestamps: true,
