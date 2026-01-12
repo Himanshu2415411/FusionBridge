@@ -207,4 +207,63 @@ router.post(
   }
 )
 
+/* ===========================
+   POST /api/courses/:id/curriculum
+   Add sections & lessons (Admin / Instructor)
+   =========================== */
+router.post(
+  "/:id/curriculum",
+  auth,
+  authorize("admin", "instructor"),
+  async (req, res) => {
+    try {
+      const { title, description, order, lessons } = req.body
+
+      if (!title || !Array.isArray(lessons) || lessons.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Section title and lessons are required",
+        })
+      }
+
+      const course = await Course.findById(req.params.id)
+      if (!course) {
+        return res.status(404).json({
+          success: false,
+          message: "Course not found",
+        })
+      }
+
+      course.curriculum.push({
+        title,
+        description,
+        order: order || course.curriculum.length + 1,
+        lessons: lessons.map((lesson, index) => ({
+          title: lesson.title,
+          description: lesson.description,
+          videoUrl: lesson.videoUrl,
+          duration: lesson.duration,
+          order: index + 1,
+          isPreview: lesson.isPreview || false,
+        })),
+      })
+
+      await course.save()
+
+      res.status(201).json({
+        success: true,
+        message: "Section and lessons added successfully",
+        curriculum: course.curriculum,
+      })
+    } catch (error) {
+      console.error("Add curriculum error:", error)
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+      })
+    }
+  }
+)
+
+
 module.exports = router

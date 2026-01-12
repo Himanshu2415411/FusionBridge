@@ -1,5 +1,4 @@
 const express = require("express")
-require("./models")
 const mongoose = require("mongoose")
 const cors = require("cors")
 const helmet = require("helmet")
@@ -7,91 +6,96 @@ const rateLimit = require("express-rate-limit")
 const compression = require("compression")
 const morgan = require("morgan")
 require("dotenv").config()
+
+// Route imports
+const authRoutes = require("./routes/auth")
+const userRoutes = require("./routes/users")
+const courseRoutes = require("./routes/courses")
 const dashboardRoutes = require("./routes/dashboard")
 const progressRoutes = require("./routes/progress")
+const communityRoutes = require("./routes/community")
+const earnRoutes = require("./routes/earn")
+const analyticsRoutes = require("./routes/analytics")
 
-
-const app = express()
-app.use("/api/dashboard", dashboardRoutes)
-
-require("dotenv").config()
+// DB connection
 const connectDB = require("./config/database")
 
+const app = express()
+
+/* ===========================
+   DATABASE
+   =========================== */
 connectDB()
 
-// Security middleware
+/* ===========================
+   SECURITY & CORE MIDDLEWARE
+   =========================== */
 app.use(helmet())
 
-app.use("/api/progress", progressRoutes)
-
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: Number.parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: "Too many requests from this IP, please try again later.",
-  },
-})
-app.use("/api/", limiter)
-
-// CORS configuration
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 )
 
-// Body parsing middleware
+// ✅ BODY PARSING — MUST COME BEFORE ROUTES
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ extended: true, limit: "10mb" }))
 
-// Compression middleware
 app.use(compression())
 
-// Logging middleware
+/* ===========================
+   LOGGING
+   =========================== */
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"))
 } else {
   app.use(morgan("combined"))
 }
 
-// Database connection
-mongoose
-  .connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log("✅ Connected to MongoDB")
-  })
-  .catch((error) => {
-    console.error("❌ MongoDB connection error:", error)
-    process.exit(1)
-  })
+/* ===========================
+   RATE LIMITING
+   =========================== */
+const limiter = rateLimit({
+  windowMs: Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: Number.parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  message: {
+    success: false,
+    message: "Too many requests, please try again later.",
+  },
+})
+app.use("/api/", limiter)
 
-// Health check endpoint
+/* ===========================
+   ROUTES
+   =========================== */
+app.use("/api/auth", authRoutes)
+app.use("/api/users", userRoutes)
+app.use("/api/courses", courseRoutes)
+app.use("/api/dashboard", dashboardRoutes)
+app.use("/api/progress", progressRoutes)
+app.use("/api/community", communityRoutes)
+app.use("/api/earn", earnRoutes)
+app.use("/api/analytics", analyticsRoutes)
+
+/* ===========================
+   HEALTH CHECK
+   =========================== */
 app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
-    timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
   })
 })
 
-// API Routes
-app.use("/api/auth", require("./routes/auth"))
-app.use("/api/users", require("./routes/users"))
-app.use("/api/courses", require("./routes/courses"))
-app.use("/api/community", require("./routes/community"))
-app.use("/api/earn", require("./routes/earn"))
-app.use("/api/analytics", require("./routes/analytics"))
-
-// 404 handler
+/* ===========================
+   404 HANDLER
+   =========================== */
 app.use("/api/*", (req, res) => {
   res.status(404).json({
     success: false,
@@ -99,21 +103,20 @@ app.use("/api/*", (req, res) => {
   })
 })
 
-// Global error handler
+/* ===========================
+   GLOBAL ERROR HANDLER
+   =========================== */
 app.use((error, req, res, next) => {
   console.error("❌ Server Error:", error)
 
-  // Mongoose validation error
   if (error.name === "ValidationError") {
-    const errors = Object.values(error.errors).map((err) => err.message)
     return res.status(400).json({
       success: false,
       message: "Validation Error",
-      errors,
+      errors: Object.values(error.errors).map(e => e.message),
     })
   }
 
-  // Mongoose duplicate key error
   if (error.code === 11000) {
     const field = Object.keys(error.keyValue)[0]
     return res.status(400).json({
@@ -122,7 +125,6 @@ app.use((error, req, res, next) => {
     })
   }
 
-  // JWT errors
   if (error.name === "JsonWebTokenError") {
     return res.status(401).json({
       success: false,
@@ -137,7 +139,6 @@ app.use((error, req, res, next) => {
     })
   }
 
-  // Default error
   res.status(error.status || 500).json({
     success: false,
     message: error.message || "Internal server error",
@@ -145,7 +146,9 @@ app.use((error, req, res, next) => {
   })
 })
 
-// Start server
+/* ===========================
+   SERVER START
+   =========================== */
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
@@ -153,19 +156,16 @@ app.listen(PORT, () => {
   console.log(`🔗 API URL: http://localhost:${PORT}/api`)
 })
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("👋 SIGTERM received, shutting down gracefully")
-  mongoose.connection.close(() => {
-    console.log("📦 MongoDB connection closed")
-    process.exit(0)
-  })
-})
+/* ===========================
+   GRACEFUL SHUTDOWN
+   =========================== */
+process.on("SIGINT", shutdown)
+process.on("SIGTERM", shutdown)
 
-process.on("SIGINT", () => {
-  console.log("👋 SIGINT received, shutting down gracefully")
+function shutdown() {
+  console.log("👋 Shutting down gracefully")
   mongoose.connection.close(() => {
     console.log("📦 MongoDB connection closed")
     process.exit(0)
   })
-})
+}
