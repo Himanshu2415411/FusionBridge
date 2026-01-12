@@ -1,30 +1,31 @@
-import { Inter } from "next/font/google"
 import "./globals.css"
 import Providers from "./providers"
 import Header from "@/components/header"
-
-const inter = Inter({ subsets: ["latin"] })
+import NavbarLayout from "@/components/navbar/navbar-layout"
 
 export const metadata = {
-  title: "FusionBridge - Bridge Your Future",
-  description:
-    "Learn, Grow, Earn, and Connect with FusionBridge - The ultimate platform for students and professionals.",
+  title: "FusionBridge",
+  description: "Learn • Grow • Earn",
 }
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased`}>
+    <html lang="en">
+      <body>
         <Providers>
-          {/* App shell locked to viewport */}
-          <div className="h-screen overflow-hidden bg-white dark:bg-[#121212] transition-colors duration-500">
-            {/* Top header (non-scrollable) */}
+          {/* App Shell */}
+          <div className="h-screen flex flex-col overflow-hidden">
+            
+            {/* Top Navbar */}
             <Header />
 
-            {/* Content area below header */}
-            <div className="h-[calc(100vh-64px)]">
-              {children}
+            {/* Sidebar + Page Content */}
+            <div className="flex flex-1 overflow-hidden">
+              <NavbarLayout>
+                {children}
+              </NavbarLayout>
             </div>
+
           </div>
         </Providers>
       </body>

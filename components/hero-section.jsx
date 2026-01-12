@@ -34,7 +34,7 @@ export default function HeroSection() {
         <div className="absolute bottom-10 left-1/3 w-40 h-40 bg-gradient-to-r from-[#F97A00]/5 to-[#FED16A]/5 dark:from-[#FF9433]/5 dark:to-[#FFD86B]/5 rounded-full blur-xl animate-pulse" style={{animationDelay: '2s', animationDuration: '5s'}}></div>
       </div>
 
-      <div className="container mx-auto text-center max-w-6xl relative z-10">
+      <div className="w-full px-6 text-center relative z-10">
         {/* Main Headline */}
         <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-[#FFD86B] mb-6 leading-tight transition-colors duration-500">
           <span className="text-[#386641] dark:text-[#FF9433]">🧠 FusionBridge</span>

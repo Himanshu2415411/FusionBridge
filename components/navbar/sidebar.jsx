@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -50,49 +49,55 @@ const navigationItems = [
   },
 ]
 
-export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+export default function Sidebar({ collapsed, onToggle }) {
   const pathname = usePathname()
-
+console.log("🔥 Sidebar rendered")
   return (
     <aside
       className={`
-        sticky top-0 z-40 h-full bg-[#386641] text-white
+        sticky top-0 z-40 h-screen bg-[#386641] text-white
         transition-all duration-300 ease-in-out
-        ${isCollapsed ? 'w-16' : 'w-56'}
+        ${collapsed ? 'w-16' : 'w-56'}
       `}
       aria-label="Main navigation sidebar"
     >
-      {/* Sidebar Header */}
-      <div className="flex items-center justify-between p-3 border-b border-[#2d5233]">
-        <div className={`flex items-center space-x-3 ${isCollapsed ? 'justify-center' : ''}`}>
-          <div className="w-8 h-8 bg-gradient-to-br from-[#F97A00] to-[#FED16A] rounded-lg flex items-center justify-center flex-shrink-0">
-            <Brain className="h-5 w-5 text-white" />
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold text-[#FED16A] truncate">
-                FusionBridge
-              </h1>
-              <p className="text-xs text-[#FED16A]/80 truncate">
-                Learn • Grow • Earn
-              </p>
-            </div>
-          )}
-        </div>
 
-        {/* Collapse toggle */}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-md hover:bg-[#2d5233] transition-colors"
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
+      
+
+      {/* Sidebar Header */}
+      {/* Sidebar Header */}
+<div className="relative p-3 border-b border-[#2d5233]">
+  <div className="flex items-center space-x-3">
+    <div className="w-8 h-8 bg-gradient-to-br from-[#F97A00] to-[#FED16A] rounded-lg flex items-center justify-center flex-shrink-0">
+      <Brain className="h-5 w-5 text-white" />
+    </div>
+
+    {!collapsed && (
+      <div className="min-w-0">
+        <h1 className="text-lg font-bold text-[#FED16A] truncate">
+          FusionBridge
+        </h1>
+        <p className="text-xs text-[#FED16A]/80 truncate">
+          Learn • Grow • Earn
+        </p>
       </div>
+    )}
+  </div>
+
+  {/* Collapse Toggle — ALWAYS VISIBLE */}
+  <button
+    onClick={onToggle}
+    className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-[#2d5233] transition-colors"
+    aria-label="Toggle sidebar"
+  >
+    {collapsed ? (
+      <ChevronRight className="h-4 w-4 text-white" />
+    ) : (
+      <ChevronLeft className="h-4 w-4 text-white" />
+    )}
+  </button>
+</div>
+
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1">
@@ -107,16 +112,17 @@ export default function Sidebar() {
               className={`
                 group relative flex items-center px-3 py-2.5 text-sm font-medium rounded-lg
                 transition-all duration-200
-                ${isActive
-                  ? 'bg-[#F97A00] text-white shadow-lg'
-                  : 'text-[#FED16A] hover:bg-[#2d5233] hover:text-white'
+                ${
+                  isActive
+                    ? 'bg-[#F97A00] text-white shadow-lg'
+                    : 'text-[#FED16A] hover:bg-[#2d5233] hover:text-white'
                 }
-                ${isCollapsed ? 'justify-center' : ''}
+                ${collapsed ? 'justify-center' : ''}
               `}
             >
-              <Icon className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
+              <Icon className={`h-5 w-5 ${collapsed ? '' : 'mr-3'}`} />
 
-              {!isCollapsed && (
+              {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="truncate">{item.name}</span>
@@ -142,9 +148,11 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="p-3 border-t border-[#2d5233]">
-        {!isCollapsed && (
+        {!collapsed && (
           <div className="text-center text-xs text-[#FED16A]/60">
-            © 2024 FusionBridge<br />v1.0.0
+            © 2024 FusionBridge
+            <br />
+            v1.0.0
           </div>
         )}
       </div>
