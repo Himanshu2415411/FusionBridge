@@ -1,10 +1,7 @@
-import LearnModule from '../../components/learn-module'
-import NavbarLayout from '../../components/navbar/navbar-layout'
+import LearnModule from '@/components/learn-module'
 
 export default function UniBridgePage() {
   return (
-    <NavbarLayout>
       <LearnModule />
-    </NavbarLayout>
   )
 }
