@@ -37,6 +37,52 @@ router.get("/profile", auth, async (req, res) => {
   }
 })
 
+// GET /api/users/me/enrolled-courses
+router.get("/me/enrolled-courses", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate("enrolledCourses.course")
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    const courses = user.enrolledCourses
+      .filter(ec => ec.course) // defensive
+      .map(ec => ({
+        _id: ec.course._id,
+        title: ec.course.title,
+        level: ec.course.level,
+        thumbnail: ec.course.thumbnail,
+        totalLessons: ec.course.totalLessons || 0,
+        completedLessons: ec.completedLessons.length,
+        progress:
+          ec.course.totalLessons > 0
+            ? Math.round(
+                (ec.completedLessons.length / ec.course.totalLessons) * 100
+              )
+            : 0,
+      }))
+
+    res.json({
+      success: true,
+      courses,
+    })
+  } catch (error) {
+    console.error("Get enrolled courses error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
+
+
 // PUT /api/users/profile
 router.put(
   "/profile",
@@ -95,6 +141,10 @@ router.put(
     }
   }
 )
+
+
+
+
 
 /* ===========================
    DASHBOARD

@@ -47,6 +47,84 @@ router.get("/", optionalAuth, async (req, res) => {
 })
 
 /* ===========================
+   GET /api/courses/enrolled
+   =========================== */
+router.get("/enrolled", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate({
+        path: "enrolledCourses.course",
+        populate: {
+          path: "instructor",
+          select: "firstName lastName avatar",
+        },
+      })
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    const enrolledCourses = user.enrolledCourses
+      .filter(ec => ec.course && ec.course.isPublished)
+      .map(ec => {
+        const course = ec.course
+
+        const totalLessons = course.totalLessons || 0
+        const completedLessons = ec.completedLessons.length
+
+        const progress =
+          totalLessons === 0
+            ? 0
+            : Math.round((completedLessons / totalLessons) * 100)
+
+        // Find next lesson
+        let nextLesson = null
+        for (const section of course.curriculum || []) {
+          for (const lesson of section.lessons || []) {
+            if (!ec.completedLessons.includes(lesson._id)) {
+              nextLesson = lesson.title
+              break
+            }
+          }
+          if (nextLesson) break
+        }
+
+        return {
+          _id: course._id,
+          title: course.title,
+          category: course.category,
+          level: course.level,
+          thumbnail: course.thumbnail,
+          instructor: course.instructor,
+          rating: course.averageRating,
+          studentsEnrolled: course.studentsEnrolled,
+          progress,
+          completedLessons,
+          totalLessons,
+          nextLesson,
+          enrolledAt: ec.enrolledAt,
+        }
+      })
+
+    res.json({
+      success: true,
+      courses: enrolledCourses,
+    })
+  } catch (error) {
+    console.error("Get enrolled courses error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
+
+/* ===========================
    GET /api/courses/:id
    =========================== */
 router.get("/:id", optionalAuth, async (req, res) => {
