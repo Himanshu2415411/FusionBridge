@@ -50,22 +50,30 @@ router.get("/me/enrolled-courses", auth, async (req, res) => {
       })
     }
 
-    const courses = user.enrolledCourses
-      .filter(ec => ec.course) // defensive
-      .map(ec => ({
+    const courses = user.enrolledCourses.map(ec => {
+      const totalLessons = ec.course?.totalLessons || 0
+      const completedLessonsCount = ec.completedLessons.length
+
+      const progressPercent =
+        totalLessons === 0
+          ? 0
+          : Math.round((completedLessonsCount / totalLessons) * 100)
+
+      return {
         _id: ec.course._id,
         title: ec.course.title,
         level: ec.course.level,
         thumbnail: ec.course.thumbnail,
-        totalLessons: ec.course.totalLessons || 0,
-        completedLessons: ec.completedLessons.length,
-        progress:
-          ec.course.totalLessons > 0
-            ? Math.round(
-                (ec.completedLessons.length / ec.course.totalLessons) * 100
-              )
-            : 0,
-      }))
+
+        totalLessons,
+        completedLessonsCount,
+        progressPercent,
+
+        isCompleted: totalLessons > 0 && completedLessonsCount === totalLessons,
+        enrolledAt: ec.enrolledAt,
+        lastAccessedLesson: ec.lastAccessedLesson,
+      }
+    })
 
     res.json({
       success: true,
@@ -79,8 +87,6 @@ router.get("/me/enrolled-courses", auth, async (req, res) => {
     })
   }
 })
-
-
 
 
 // PUT /api/users/profile
