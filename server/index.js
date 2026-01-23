@@ -80,6 +80,8 @@ app.use("/api/progress", progressRoutes)
 app.use("/api/community", communityRoutes)
 app.use("/api/earn", earnRoutes)
 app.use("/api/analytics", analyticsRoutes)
+app.use("/api/lessons", require("./routes/lessons"))
+
 
 /* ===========================
    HEALTH CHECK
