@@ -154,6 +154,10 @@ const userSchema = new mongoose.Schema(
     enrolledAt: {
       type: Date,
       default: Date.now
+    },
+    isCourseCompleted: {
+      type: Boolean,
+      default: false
     }
   }
 ],

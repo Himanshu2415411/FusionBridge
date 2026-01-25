@@ -126,11 +126,16 @@ router.get("/enrolled", auth, async (req, res) => {
 
 /* ===========================
    GET /api/courses/:id
+   ✅ Access Control:
+   - Enrolled user => full curriculum
+   - Not enrolled  => preview-only curriculum
    =========================== */
 router.get("/:id", optionalAuth, async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id)
-      .populate("instructor", "firstName lastName avatar bio")
+    const course = await Course.findById(req.params.id).populate(
+      "instructor",
+      "firstName lastName avatar bio"
+    )
 
     if (!course) {
       return res.status(404).json({
@@ -145,8 +150,9 @@ router.get("/:id", optionalAuth, async (req, res) => {
 
     if (req.user) {
       const user = await User.findById(req.user._id)
+
       const enrollment = user.enrolledCourses.find(
-        ec => ec.course.toString() === course._id.toString()
+        (ec) => ec.course.toString() === course._id.toString()
       )
 
       if (enrollment) {
@@ -160,15 +166,40 @@ router.get("/:id", optionalAuth, async (req, res) => {
             ? 0
             : Math.round((completedCount / totalLessons) * 100)
 
-        completed =
-          totalLessons > 0 && completedCount === totalLessons
+        completed = totalLessons > 0 && completedCount === totalLessons
       }
+    }
+
+    // ✅ Preview-only curriculum if NOT enrolled
+    let safeCurriculum = course.curriculum || []
+
+    if (!isEnrolled) {
+      safeCurriculum = (course.curriculum || [])
+        .map((section) => {
+          const previewLessons = (section.lessons || []).filter(
+            (lesson) => lesson.isPreview === true
+          )
+
+          return {
+            ...section.toObject(),
+            lessons: previewLessons.map((l) => ({
+              _id: l._id,
+              title: l.title,
+              description: l.description,
+              duration: l.duration,
+              order: l.order,
+              isPreview: l.isPreview,
+            })),
+          }
+        })
+        .filter((section) => section.lessons.length > 0)
     }
 
     res.json({
       success: true,
       course: {
-        ...course._doc,
+        ...course.toObject(),
+        curriculum: safeCurriculum,
         isEnrolled,
         progress,
         completed,
@@ -179,6 +210,7 @@ router.get("/:id", optionalAuth, async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" })
   }
 })
+
 
 /* ===========================
    POST /api/courses/:id/enroll

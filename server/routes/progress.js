@@ -5,6 +5,8 @@ const { auth } = require("../middleware/auth")
 
 const router = express.Router()
 
+const COURSE_COMPLETION_XP = 200
+
 const findLessonInCourse = (course, lessonId) => {
   if (!course?.curriculum?.length) return false
 
@@ -96,14 +98,40 @@ router.post("/lesson", auth, async (req, res) => {
 
     await user.save()
 
-    res.json({
+    const progressData = buildProgressPayload({
+      courseId,
+      lessonId,
+      enrollment,
+      course,
+    })
+
+    let rewarded = false
+    let xpAdded = 0
+
+    if (progressData.isCompleted && enrollment.isCourseCompleted !== true) {
+      enrollment.isCourseCompleted = true
+
+      user.coursesCompleted = (user.coursesCompleted || 0) + 1
+      user.xp = (user.xp || 0) + COURSE_COMPLETION_XP
+
+      xpAdded = COURSE_COMPLETION_XP
+      rewarded = true
+
+      await user.save()
+    }
+
+    return res.json({
       success: true,
-      message: alreadyCompleted ? "Lesson already completed" : "Lesson marked as completed",
-      data: buildProgressPayload({ courseId, lessonId, enrollment, course }),
+      message: alreadyCompleted
+        ? "Lesson already completed"
+        : "Lesson marked as completed",
+      rewarded,
+      xpAdded,
+      data: progressData,
     })
   } catch (error) {
     console.error("Lesson progress error:", error)
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     })
@@ -163,16 +191,32 @@ router.delete("/lesson", auth, async (req, res) => {
 
     const after = enrollment.completedLessons.length
 
+    enrollment.lastAccessedLesson = lessonId
+
+    const progressData = buildProgressPayload({
+      courseId,
+      lessonId,
+      enrollment,
+      course,
+    })
+
+    if (!progressData.isCompleted) {
+      enrollment.isCourseCompleted = false
+    }
+
     await user.save()
 
-    res.json({
+    return res.json({
       success: true,
-      message: before === after ? "Lesson was not completed already" : "Lesson uncompleted successfully",
-      data: buildProgressPayload({ courseId, lessonId, enrollment, course }),
+      message:
+        before === after
+          ? "Lesson was not completed already"
+          : "Lesson uncompleted successfully",
+      data: progressData,
     })
   } catch (error) {
     console.error("Uncomplete lesson error:", error)
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     })
@@ -208,17 +252,90 @@ router.get("/course/:courseId", auth, async (req, res) => {
       })
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: buildProgressPayload({ courseId, enrollment, course }),
     })
   } catch (error) {
     console.error("Course progress error:", error)
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+/**
+ * GET /api/progress/course/:courseId/next-lesson
+ * Returns next incomplete lesson for the current user in a course
+ */
+router.get("/course/:courseId/next-lesson", auth, async (req, res) => {
+  try {
+    const { courseId } = req.params
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      (ec) => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const completedSet = new Set(
+      enrollment.completedLessons.map((id) => id.toString())
+    )
+
+    let nextLesson = null
+
+    for (const section of course.curriculum || []) {
+      for (const lesson of section.lessons || []) {
+        if (!completedSet.has(lesson._id.toString())) {
+          nextLesson = {
+            courseId: course._id,
+            sectionId: section._id,
+            sectionTitle: section.title,
+            lessonId: lesson._id,
+            title: lesson.title,
+            description: lesson.description,
+            videoUrl: lesson.videoUrl,
+            duration: lesson.duration,
+            order: lesson.order,
+            isPreview: lesson.isPreview,
+          }
+          break
+        }
+      }
+      if (nextLesson) break
+    }
+
+    res.json({
+      success: true,
+      data: {
+        courseId: course._id,
+        nextLesson,
+      },
+    })
+  } catch (error) {
+    console.error("Next lesson error:", error)
     res.status(500).json({
       success: false,
       message: "Server error",
     })
   }
 })
+
 
 module.exports = router
