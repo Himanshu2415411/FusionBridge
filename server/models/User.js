@@ -158,6 +158,10 @@ const userSchema = new mongoose.Schema(
     isCourseCompleted: {
       type: Boolean,
       default: false
+    },
+    isCourseCompleted: {
+    type: Boolean,
+    default: false,
     }
   }
 ],

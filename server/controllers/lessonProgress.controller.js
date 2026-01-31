@@ -1,7 +1,11 @@
 const User = require("../models/User")
 const Course = require("../models/Course")
 
+const COURSE_COMPLETION_XP = 200
+
 const findLessonInCourse = (course, lessonId) => {
+  if (!course?.curriculum?.length) return null
+
   for (const section of course.curriculum || []) {
     for (const lesson of section.lessons || []) {
       if (lesson._id.toString() === lessonId.toString()) {
@@ -9,7 +13,30 @@ const findLessonInCourse = (course, lessonId) => {
       }
     }
   }
+
   return null
+}
+
+const buildProgressPayload = ({ courseId, lessonId, enrollment, course }) => {
+  const totalLessons = course.totalLessons || 0
+  const completedLessonsCount = enrollment.completedLessons.length
+
+  const progressPercent =
+    totalLessons === 0
+      ? 0
+      : Math.round((completedLessonsCount / totalLessons) * 100)
+
+  const isCompleted = totalLessons > 0 && completedLessonsCount === totalLessons
+
+  return {
+    courseId,
+    lessonId: lessonId || null,
+    totalLessons,
+    completedLessonsCount,
+    progressPercent,
+    isCompleted,
+    lastAccessedLesson: enrollment.lastAccessedLesson || null,
+  }
 }
 
 const completeLesson = async (req, res) => {
@@ -56,30 +83,40 @@ const completeLesson = async (req, res) => {
 
     enrollment.lastAccessedLesson = lessonId
 
+    const progressData = buildProgressPayload({
+      courseId,
+      lessonId,
+      enrollment,
+      course,
+    })
+
+    let rewarded = false
+    let xpAdded = 0
+
+    if (progressData.isCompleted && enrollment.isCourseCompleted !== true) {
+      enrollment.isCourseCompleted = true
+
+      user.coursesCompleted = (user.coursesCompleted || 0) + 1
+      user.xp = (user.xp || 0) + COURSE_COMPLETION_XP
+
+      xpAdded = COURSE_COMPLETION_XP
+      rewarded = true
+    }
+
     await user.save()
 
-    const totalLessons = course.totalLessons || 0
-    const completedLessonsCount = enrollment.completedLessons.length
-
-    const progressPercent =
-      totalLessons === 0 ? 0 : Math.round((completedLessonsCount / totalLessons) * 100)
-
-    res.json({
+    return res.json({
       success: true,
-      message: alreadyCompleted ? "Lesson already completed" : "Lesson marked as completed",
-      data: {
-        courseId: course._id,
-        lessonId,
-        totalLessons,
-        completedLessonsCount,
-        progressPercent,
-        isCompleted: totalLessons > 0 && completedLessonsCount >= totalLessons,
-        lastAccessedLesson: enrollment.lastAccessedLesson,
-      },
+      message: alreadyCompleted
+        ? "Lesson already completed"
+        : "Lesson marked as completed",
+      rewarded,
+      xpAdded,
+      data: progressData,
     })
   } catch (error) {
     console.error("Complete lesson error:", error)
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     })

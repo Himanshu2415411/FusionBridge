@@ -123,6 +123,107 @@ router.get("/enrolled", auth, async (req, res) => {
 })
 
 
+/* ===========================
+   GET /api/courses/:courseId/learn
+   Resume course learning (Auth required)
+   =========================== */
+router.get("/:courseId/learn", auth, async (req, res) => {
+  try {
+    const { courseId } = req.params
+
+    const user = await User.findById(req.user._id)
+
+    const course = await Course.findById(courseId).populate(
+      "instructor",
+      "firstName lastName avatar bio"
+    )
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      (ec) => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const totalLessons = course.totalLessons || 0
+    const completedLessonsCount = enrollment.completedLessons.length
+
+    const progressPercent =
+      totalLessons === 0
+        ? 0
+        : Math.round((completedLessonsCount / totalLessons) * 100)
+
+    const isCompleted =
+      totalLessons > 0 && completedLessonsCount === totalLessons
+
+    // ✅ Find next lesson (first incomplete lesson in order)
+    let nextLesson = null
+
+    for (const section of course.curriculum || []) {
+      for (const lesson of section.lessons || []) {
+        const isDone = enrollment.completedLessons.some(
+          (id) => id.toString() === lesson._id.toString()
+        )
+
+        if (!isDone) {
+          nextLesson = {
+            _id: lesson._id,
+            title: lesson.title,
+          }
+          break
+        }
+      }
+      if (nextLesson) break
+    }
+
+    res.json({
+      success: true,
+      data: {
+        course: {
+          _id: course._id,
+          title: course.title,
+          description: course.description,
+          shortDescription: course.shortDescription,
+          thumbnail: course.thumbnail,
+          category: course.category,
+          level: course.level,
+          instructor: course.instructor,
+          curriculum: course.curriculum,
+          totalLessons,
+          totalDurationMinutes: course.totalDurationMinutes,
+        },
+        progress: {
+          completedLessonsCount,
+          totalLessons,
+          progressPercent,
+          isCompleted,
+          lastAccessedLesson: enrollment.lastAccessedLesson || null,
+        },
+        nextLesson,
+      },
+    })
+  } catch (error) {
+    console.error("Resume course error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
+
 
 /* ===========================
    GET /api/courses/:id

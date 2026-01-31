@@ -96,8 +96,6 @@ router.post("/lesson", auth, async (req, res) => {
 
     enrollment.lastAccessedLesson = lessonId
 
-    await user.save()
-
     const progressData = buildProgressPayload({
       courseId,
       lessonId,
@@ -116,9 +114,9 @@ router.post("/lesson", auth, async (req, res) => {
 
       xpAdded = COURSE_COMPLETION_XP
       rewarded = true
-
-      await user.save()
     }
+
+    await user.save()
 
     return res.json({
       success: true,
@@ -191,7 +189,12 @@ router.delete("/lesson", auth, async (req, res) => {
 
     const after = enrollment.completedLessons.length
 
-    enrollment.lastAccessedLesson = lessonId
+    if (
+      enrollment.lastAccessedLesson &&
+      enrollment.lastAccessedLesson.toString() === lessonId
+    ) {
+      enrollment.lastAccessedLesson = null
+    }
 
     const progressData = buildProgressPayload({
       courseId,
@@ -336,6 +339,5 @@ router.get("/course/:courseId/next-lesson", auth, async (req, res) => {
     })
   }
 })
-
 
 module.exports = router
