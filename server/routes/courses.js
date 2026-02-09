@@ -312,6 +312,97 @@ router.get("/:id", optionalAuth, async (req, res) => {
   }
 })
 
+/* ===========================
+   GET /api/courses/:id/learn
+   Learning Session API
+   =========================== */
+router.get("/:id/learn", auth, async (req, res) => {
+  try {
+    const courseId = req.params.id
+
+    const course = await Course.findById(courseId)
+      .populate("instructor", "firstName lastName avatar")
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const user = await User.findById(req.user._id)
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const totalLessons = course.totalLessons || 0
+    const completedLessonsCount = enrollment.completedLessons.length
+
+    const progressPercent =
+      totalLessons === 0
+        ? 0
+        : Math.round((completedLessonsCount / totalLessons) * 100)
+
+    const isCompleted =
+      totalLessons > 0 && completedLessonsCount === totalLessons
+
+    /* ---------- find next lesson ---------- */
+    const completedSet = new Set(
+      enrollment.completedLessons.map(id => id.toString())
+    )
+
+    let nextLesson = null
+
+    for (const section of course.curriculum || []) {
+      for (const lesson of section.lessons || []) {
+        if (!completedSet.has(lesson._id.toString())) {
+          nextLesson = {
+            sectionId: section._id,
+            sectionTitle: section.title,
+            lessonId: lesson._id,
+            title: lesson.title,
+            duration: lesson.duration,
+            order: lesson.order,
+          }
+          break
+        }
+      }
+      if (nextLesson) break
+    }
+
+    res.json({
+      success: true,
+      data: {
+        course,
+        progress: {
+          completedLessonsCount,
+          totalLessons,
+          progressPercent,
+          isCompleted,
+          lastAccessedLesson: enrollment.lastAccessedLesson,
+        },
+        completedLessons: enrollment.completedLessons,
+        nextLesson,
+      },
+    })
+  } catch (error) {
+    console.error("Learning session error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
 
 /* ===========================
    POST /api/courses/:id/enroll

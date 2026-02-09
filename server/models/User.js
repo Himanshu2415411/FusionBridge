@@ -162,7 +162,24 @@ const userSchema = new mongoose.Schema(
     isCourseCompleted: {
     type: Boolean,
     default: false,
-    }
+    },
+    lessonAccessHistory: [
+  {
+    lessonId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+    lastAccessedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    accessCount: {
+      type: Number,
+      default: 1,
+    },
+  },
+],
+
   }
 ],
   },
