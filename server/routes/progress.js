@@ -137,6 +137,77 @@ router.post("/lesson", auth, async (req, res) => {
 })
 
 /**
+ * POST /api/progress/lesson/access
+ * Track lesson access (view/open)
+ */
+router.post("/lesson/access", auth, async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.body
+
+    if (!courseId || !lessonId) {
+      return res.status(400).json({
+        success: false,
+        message: "courseId and lessonId are required",
+      })
+    }
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    // find existing access entry
+    const existing = enrollment.lessonAccessHistory.find(
+      l => l.lessonId.toString() === lessonId
+    )
+
+    if (existing) {
+      existing.lastAccessedAt = new Date()
+      existing.accessCount += 1
+    } else {
+      enrollment.lessonAccessHistory.push({
+        lessonId,
+        lastAccessedAt: new Date(),
+        accessCount: 1,
+      })
+    }
+
+    enrollment.lastAccessedLesson = lessonId
+
+    await user.save()
+
+    res.json({
+      success: true,
+      message: "Lesson access tracked",
+    })
+  } catch (error) {
+    console.error("Lesson access error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
+
+/**
  * DELETE /api/progress/lesson
  * Unmarks a lesson (remove from completedLessons)
  */
