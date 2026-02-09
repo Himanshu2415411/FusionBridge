@@ -159,10 +159,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    isCourseCompleted: {
-    type: Boolean,
-    default: false,
+    completedAt: {
+      type: Date,
+      default: null
     },
+    certificateUnlocked: {
+      type: Boolean,
+      default: false
+    },
+
     lessonAccessHistory: [
   {
     lessonId: {

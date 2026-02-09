@@ -225,6 +225,8 @@ router.get("/:courseId/learn", auth, async (req, res) => {
 
 
 
+
+
 /* ===========================
    GET /api/courses/:id
    ✅ Access Control:
@@ -395,6 +397,124 @@ router.get("/:id/learn", auth, async (req, res) => {
     })
   } catch (error) {
     console.error("Learning session error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
+router.get("/:id/certificate", auth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(id)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === id
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        courseId: course._id,
+        courseTitle: course.title,
+        eligible: enrollment.certificateUnlocked === true,
+        completedAt: enrollment.completedAt,
+        instructor: course.instructor
+      }
+    })
+  } catch (error) {
+    console.error("Certificate error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
+router.get("/:id/timeline", auth, async (req, res) => {
+  try {
+    const courseId = req.params.id
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const completedSet = new Set(
+      enrollment.completedLessons.map(id => id.toString())
+    )
+
+    let currentLessonFound = false
+
+    const timeline = course.curriculum.map(section => {
+      return {
+        _id: section._id,
+        title: section.title,
+        lessons: section.lessons.map(lesson => {
+          let status = "locked"
+
+          if (completedSet.has(lesson._id.toString())) {
+            status = "completed"
+          } else if (!currentLessonFound) {
+            status = "current"
+            currentLessonFound = true
+          }
+
+          return {
+            _id: lesson._id,
+            title: lesson.title,
+            duration: lesson.duration,
+            order: lesson.order,
+            status,
+          }
+        }),
+      }
+    })
+
+    res.json({
+      success: true,
+      data: {
+        courseId,
+        timeline,
+      },
+    })
+  } catch (error) {
+    console.error("Course timeline error:", error)
     res.status(500).json({
       success: false,
       message: "Server error",

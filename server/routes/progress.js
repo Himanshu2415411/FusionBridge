@@ -108,13 +108,18 @@ router.post("/lesson", auth, async (req, res) => {
 
     if (progressData.isCompleted && enrollment.isCourseCompleted !== true) {
       enrollment.isCourseCompleted = true
+      enrollment.completedAt = new Date()
+      enrollment.certificateUnlocked = true
 
       user.coursesCompleted = (user.coursesCompleted || 0) + 1
       user.xp = (user.xp || 0) + COURSE_COMPLETION_XP
 
       xpAdded = COURSE_COMPLETION_XP
       rewarded = true
+
+      await user.save()
     }
+
 
     await user.save()
 
@@ -276,7 +281,10 @@ router.delete("/lesson", auth, async (req, res) => {
 
     if (!progressData.isCompleted) {
       enrollment.isCourseCompleted = false
+      enrollment.completedAt = null
+      enrollment.certificateUnlocked = false
     }
+
 
     await user.save()
 
@@ -410,5 +418,85 @@ router.get("/course/:courseId/next-lesson", auth, async (req, res) => {
     })
   }
 })
+
+/**
+ * GET /api/progress/course/:courseId/resume
+ * Returns lesson to resume for user
+ */
+router.get("/course/:courseId/resume", auth, async (req, res) => {
+  try {
+    const { courseId } = req.params
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    // 1️⃣ Resume last accessed lesson if exists
+    if (enrollment.lastAccessedLesson) {
+      return res.json({
+        success: true,
+        data: {
+          courseId,
+          resumeLessonId: enrollment.lastAccessedLesson,
+          type: "resume",
+        },
+      })
+    }
+
+    // 2️⃣ Otherwise find next incomplete lesson
+    const completedSet = new Set(
+      enrollment.completedLessons.map(id => id.toString())
+    )
+
+    for (const section of course.curriculum || []) {
+      for (const lesson of section.lessons || []) {
+        if (!completedSet.has(lesson._id.toString())) {
+          return res.json({
+            success: true,
+            data: {
+              courseId,
+              resumeLessonId: lesson._id,
+              type: "next",
+            },
+          })
+        }
+      }
+    }
+
+    // 3️⃣ Course finished
+    return res.json({
+      success: true,
+      data: {
+        courseId,
+        resumeLessonId: null,
+        type: "completed",
+      },
+    })
+  } catch (error) {
+    console.error("Resume lesson error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
 
 module.exports = router
