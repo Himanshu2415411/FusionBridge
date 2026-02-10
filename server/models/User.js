@@ -169,21 +169,21 @@ const userSchema = new mongoose.Schema(
     },
 
     lessonAccessHistory: [
-  {
-    lessonId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
+    {
+      lessonId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+      },
+      lastAccessedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      accessCount: {
+        type: Number,
+        default: 1,
+      },
     },
-    lastAccessedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    accessCount: {
-      type: Number,
-      default: 1,
-    },
-  },
-],
+    ],
 
   }
 ],

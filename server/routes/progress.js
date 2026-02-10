@@ -116,11 +116,7 @@ router.post("/lesson", auth, async (req, res) => {
 
       xpAdded = COURSE_COMPLETION_XP
       rewarded = true
-
-      await user.save()
     }
-
-
     await user.save()
 
     return res.json({
@@ -491,6 +487,73 @@ router.get("/course/:courseId/resume", auth, async (req, res) => {
     })
   } catch (error) {
     console.error("Resume lesson error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+/**
+ * GET /api/progress/course/:courseId/stats
+ * Learning activity statistics for a course
+ */
+router.get("/course/:courseId/stats", auth, async (req, res) => {
+  try {
+    const { courseId } = req.params
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const history = enrollment.lessonAccessHistory || []
+
+    const uniqueLessons = new Set(
+      history.map(h => h.lessonId.toString())
+    )
+
+    const totalAccessCount = history.reduce(
+      (sum, h) => sum + (h.accessCount || 0),
+      0
+    )
+
+    const lastAccessedAt =
+      history.length > 0
+        ? history.reduce((latest, h) =>
+            !latest || h.lastAccessedAt > latest
+              ? h.lastAccessedAt
+              : latest
+          , null)
+        : null
+
+    return res.json({
+      success: true,
+      data: {
+        courseId,
+        lessonsAccessed: uniqueLessons.size,
+        totalAccessCount,
+        lastAccessedAt,
+      },
+    })
+  } catch (error) {
+    console.error("Course stats error:", error)
     res.status(500).json({
       success: false,
       message: "Server error",
