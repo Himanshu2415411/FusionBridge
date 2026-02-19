@@ -92,7 +92,39 @@ router.post("/lesson", auth, async (req, res) => {
 
     if (!alreadyCompleted) {
       enrollment.completedLessons.push(lessonId)
+
+      // ---------- DAILY STREAK LOGIC ----------
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      let lastDate = user.lastLearningDate
+
+      if (lastDate) {
+        const last = new Date(lastDate)
+        last.setHours(0, 0, 0, 0)
+
+        const diffDays = Math.floor(
+          (today - last) / (1000 * 60 * 60 * 24)
+        )
+
+        if (diffDays === 1) {
+          user.currentStreak += 1
+        } else if (diffDays > 1) {
+          user.currentStreak = 1
+        }
+        // diffDays === 0 → do nothing
+        // diffDays < 0 → ignore (safety)
+      } else {
+        user.currentStreak = 1
+      }
+
+      if (user.currentStreak > user.longestStreak) {
+        user.longestStreak = user.currentStreak
+      }
+
+      user.lastLearningDate = new Date()
     }
+
 
     enrollment.lastAccessedLesson = lessonId
 

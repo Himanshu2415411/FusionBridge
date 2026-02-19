@@ -131,6 +131,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    lastLearningDate: {
+    type: Date,
+    default: null,
+    },
     lastLogin: {
       type: Date,
       default: Date.now,
