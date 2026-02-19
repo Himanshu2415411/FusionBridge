@@ -69,6 +69,33 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
+    activities: [
+    {
+      type: {
+        type: String,
+        enum: [
+          "lesson_completed",
+          "course_completed",
+          "badge_earned",
+          "streak_milestone"
+        ],
+      },
+      courseId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+      },
+      lessonId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+      badgeName: String,
+      metadata: Object,
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+    ],
+
     coursesCompleted: {
       type: Number,
       default: 0,

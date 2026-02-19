@@ -303,4 +303,44 @@ router.get("/", [auth, authorize("admin")], async (req, res) => {
   }
 })
 
+/**
+ * GET /api/users/activity
+ * Returns recent user activity
+ */
+router.get("/activity", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("activities firstName lastName")
+      .lean()
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    // Sort newest first
+    const activities = (user.activities || []).slice(0, 20)
+   // limit to last 20
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          name: `${user.firstName} ${user.lastName}`,
+        },
+        activities,
+      },
+    })
+  } catch (error) {
+    console.error("Activity feed error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+
 module.exports = router

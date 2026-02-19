@@ -91,6 +91,14 @@ router.post("/lesson", auth, async (req, res) => {
     )
 
     if (!alreadyCompleted) {
+
+      user.activities.unshift({
+      type: "lesson_completed",
+      courseId,
+      lessonId,
+      })
+
+
       enrollment.completedLessons.push(lessonId)
 
       // ---------- DAILY STREAK LOGIC ----------
@@ -123,6 +131,51 @@ router.post("/lesson", auth, async (req, res) => {
       }
 
       user.lastLearningDate = new Date()
+
+            // ---------- BADGE SYSTEM ----------
+      const hasBadge = (badgeName) =>
+        user.badges.some(b => b.name === badgeName)
+
+      const awardBadge = (name, icon) => {
+      user.badges.push({ name, icon })
+
+      user.activities.push({
+        type: "badge_earned",
+        badgeName: name,
+      })
+      }
+
+
+      if (user.currentStreak === 3 && !hasBadge("3 Day Streak")) {
+        awardBadge("3 Day Streak", "🔥")
+      }
+
+      if (user.currentStreak === 7 && !hasBadge("7 Day Streak")) {
+        awardBadge("7 Day Streak", "🚀")
+      }
+
+      if (user.currentStreak === 30 && !hasBadge("30 Day Streak")) {
+        awardBadge("30 Day Streak", "🏆")
+      }
+
+
+
+
+
+      const BASE_LESSON_XP = 10
+      let lessonXp = BASE_LESSON_XP
+
+      // ---------- STREAK BONUS ----------
+      if (user.currentStreak >= 30) {
+        lessonXp += 50
+      } else if (user.currentStreak >= 7) {
+        lessonXp += 20
+      } else if (user.currentStreak >= 3) {
+        lessonXp += 10
+      }
+
+      user.xp += lessonXp
+
     }
 
 
@@ -142,6 +195,12 @@ router.post("/lesson", auth, async (req, res) => {
       enrollment.isCourseCompleted = true
       enrollment.completedAt = new Date()
       enrollment.certificateUnlocked = true
+
+      user.activities.push({
+      type: "course_completed",
+      courseId,
+    })
+
 
       user.coursesCompleted = (user.coursesCompleted || 0) + 1
       user.xp = (user.xp || 0) + COURSE_COMPLETION_XP
