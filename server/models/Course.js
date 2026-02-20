@@ -39,6 +39,24 @@ const lessonSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  quiz: [
+    {
+      question: {
+        type: String,
+        required: true,
+      },
+      options: [
+        {
+          type: String,
+          required: true,
+        },
+      ],
+      correctAnswer: {
+        type: Number, // index of correct option
+        required: true,
+      },
+    },
+  ],
 })
 
 /* ===========================

@@ -3,6 +3,7 @@ const Course = require("../models/Course")
 const User = require("../models/User")
 const { auth, optionalAuth, authorize } = require("../middleware/auth")
 const { body, validationResult } = require("express-validator")
+const { completeLessonForUser } = require("../utils/lessonCompletion")
 
 const router = express.Router()
 
@@ -11,10 +12,37 @@ const router = express.Router()
    =========================== */
 router.get("/", optionalAuth, async (req, res) => {
   try {
-    const courses = await Course.find({ isPublished: true })
+    const {
+      search = "",
+      category,
+      level,
+      page = 1,
+      limit = 10,
+    } = req.query
+
+    const query = { isPublished: true }
+
+    if (search) {
+      query.title = { $regex: search, $options: "i" }
+    }
+
+    if (category) {
+      query.category = category
+    }
+
+    if (level) {
+      query.level = level
+    }
+
+    const skip = (Number(page) - 1) * Number(limit)
+
+    const courses = await Course.find(query)
       .populate("instructor", "firstName lastName avatar")
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
 
+    // 👇 Preserve your enrollment + progress logic
     if (req.user) {
       const user = await User.findById(req.user._id)
 
@@ -39,7 +67,18 @@ router.get("/", optionalAuth, async (req, res) => {
       })
     }
 
-    res.json({ success: true, courses })
+    const total = await Course.countDocuments(query)
+
+    res.json({
+      success: true,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / limit),
+      },
+      courses,
+    })
   } catch (error) {
     console.error("Get courses error:", error)
     res.status(500).json({ success: false, message: "Server error" })
@@ -583,5 +622,204 @@ router.post(
   }
 )
 
+/* ===========================
+   POST /api/courses/:id/review
+   =========================== */
+router.post("/:id/review", auth, async (req, res) => {
+  try {
+    const { rating, comment } = req.body
+    const courseId = req.params.id
+
+    if (!rating || !comment) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating and comment are required",
+      })
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5",
+      })
+    }
+
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const alreadyReviewed = course.reviews.find(
+      review => review.user.toString() === req.user._id.toString()
+    )
+
+    if (alreadyReviewed) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already reviewed this course",
+      })
+    }
+
+    course.reviews.push({
+      user: req.user._id,
+      rating,
+      comment,
+    })
+
+    // 🔥 Use model method (clean architecture)
+    course.calculateAverageRating()
+
+    await course.save()
+
+    res.json({
+      success: true,
+      message: "Review added successfully",
+      averageRating: course.averageRating,
+      reviewCount: course.reviewCount, // virtual
+    })
+  } catch (error) {
+    console.error("Add review error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+/* ===========================
+   GET /api/courses/:id/reviews
+   =========================== */
+router.get("/:id/reviews", async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id)
+      .populate("reviews.user", "firstName lastName avatar")
+      .lean()
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    res.json({
+      success: true,
+      data: {
+        averageRating: course.averageRating,
+        reviewCount: course.reviews ? course.reviews.length : 0,
+        reviews: course.reviews,
+      },
+    })
+  } catch (error) {
+    console.error("Get reviews error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+/* ===========================
+   POST /api/courses/:courseId/lessons/:lessonId/quiz
+   =========================== */
+router.post("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
+  try {
+    const { answers } = req.body
+    const { courseId, lessonId } = req.params
+
+    if (!Array.isArray(answers)) {
+      return res.status(400).json({
+        success: false,
+        message: "Answers must be an array",
+      })
+    }
+
+    const course = await Course.findById(courseId)
+    const user = await User.findById(req.user._id)
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    // Find lesson
+    let lesson = null
+    for (const section of course.curriculum) {
+      lesson = section.lessons.find(
+        l => l._id.toString() === lessonId
+      )
+      if (lesson) break
+    }
+
+    if (!lesson || !lesson.quiz || lesson.quiz.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No quiz available for this lesson",
+      })
+    }
+
+    // Calculate score
+    let score = 0
+    lesson.quiz.forEach((question, index) => {
+      if (answers[index] === question.correctAnswer) {
+        score++
+      }
+    })
+
+    const percentage = Math.round(
+      (score / lesson.quiz.length) * 100
+    )
+
+    const passed = percentage >= 60
+
+    // 🔥 Auto-complete lesson if passed
+    let lessonCompleted = false
+
+    if (passed) {
+      const result = await completeLessonForUser(
+        user,
+        course,
+        lessonId
+      )
+      lessonCompleted = result.completed
+    }
+
+    await user.save()
+
+    res.json({
+      success: true,
+      data: {
+        totalQuestions: lesson.quiz.length,
+        correctAnswers: score,
+        percentage,
+        passed,
+        lessonCompleted,
+      },
+    })
+  } catch (error) {
+    console.error("Quiz submission error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
 
 module.exports = router

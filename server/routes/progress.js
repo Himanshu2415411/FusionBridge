@@ -2,6 +2,7 @@ const express = require("express")
 const User = require("../models/User")
 const Course = require("../models/Course")
 const { auth } = require("../middleware/auth")
+const { completeLessonForUser } = require("../utils/lessonCompletion")
 
 const router = express.Router()
 
@@ -66,17 +67,6 @@ router.post("/lesson", auth, async (req, res) => {
       })
     }
 
-    const enrollment = user.enrolledCourses.find(
-      (ec) => ec.course.toString() === courseId
-    )
-
-    if (!enrollment) {
-      return res.status(403).json({
-        success: false,
-        message: "User not enrolled in this course",
-      })
-    }
-
     const lessonExists = findLessonInCourse(course, lessonId)
 
     if (!lessonExists) {
@@ -86,137 +76,26 @@ router.post("/lesson", auth, async (req, res) => {
       })
     }
 
-    const alreadyCompleted = enrollment.completedLessons.some(
-      (id) => id.toString() === lessonId
+    const result = await completeLessonForUser(
+      user,
+      course,
+      lessonId
     )
-
-    if (!alreadyCompleted) {
-
-      user.activities.unshift({
-      type: "lesson_completed",
-      courseId,
-      lessonId,
-      })
-
-
-      enrollment.completedLessons.push(lessonId)
-
-      // ---------- DAILY STREAK LOGIC ----------
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      let lastDate = user.lastLearningDate
-
-      if (lastDate) {
-        const last = new Date(lastDate)
-        last.setHours(0, 0, 0, 0)
-
-        const diffDays = Math.floor(
-          (today - last) / (1000 * 60 * 60 * 24)
-        )
-
-        if (diffDays === 1) {
-          user.currentStreak += 1
-        } else if (diffDays > 1) {
-          user.currentStreak = 1
-        }
-        // diffDays === 0 → do nothing
-        // diffDays < 0 → ignore (safety)
-      } else {
-        user.currentStreak = 1
-      }
-
-      if (user.currentStreak > user.longestStreak) {
-        user.longestStreak = user.currentStreak
-      }
-
-      user.lastLearningDate = new Date()
-
-            // ---------- BADGE SYSTEM ----------
-      const hasBadge = (badgeName) =>
-        user.badges.some(b => b.name === badgeName)
-
-      const awardBadge = (name, icon) => {
-      user.badges.push({ name, icon })
-
-      user.activities.push({
-        type: "badge_earned",
-        badgeName: name,
-      })
-      }
-
-
-      if (user.currentStreak === 3 && !hasBadge("3 Day Streak")) {
-        awardBadge("3 Day Streak", "🔥")
-      }
-
-      if (user.currentStreak === 7 && !hasBadge("7 Day Streak")) {
-        awardBadge("7 Day Streak", "🚀")
-      }
-
-      if (user.currentStreak === 30 && !hasBadge("30 Day Streak")) {
-        awardBadge("30 Day Streak", "🏆")
-      }
-
-
-
-
-
-      const BASE_LESSON_XP = 10
-      let lessonXp = BASE_LESSON_XP
-
-      // ---------- STREAK BONUS ----------
-      if (user.currentStreak >= 30) {
-        lessonXp += 50
-      } else if (user.currentStreak >= 7) {
-        lessonXp += 20
-      } else if (user.currentStreak >= 3) {
-        lessonXp += 10
-      }
-
-      user.xp += lessonXp
-
-    }
-
-
-    enrollment.lastAccessedLesson = lessonId
 
     const progressData = buildProgressPayload({
       courseId,
       lessonId,
-      enrollment,
+      enrollment: user.enrolledCourses.find(
+        ec => ec.course.toString() === courseId
+      ),
       course,
     })
 
-    let rewarded = false
-    let xpAdded = 0
-
-    if (progressData.isCompleted && enrollment.isCourseCompleted !== true) {
-      enrollment.isCourseCompleted = true
-      enrollment.completedAt = new Date()
-      enrollment.certificateUnlocked = true
-
-      user.activities.push({
-      type: "course_completed",
-      courseId,
-    })
-
-
-      user.coursesCompleted = (user.coursesCompleted || 0) + 1
-      user.xp = (user.xp || 0) + COURSE_COMPLETION_XP
-
-      xpAdded = COURSE_COMPLETION_XP
-      rewarded = true
-    }
-    await user.save()
-
     return res.json({
       success: true,
-      message: alreadyCompleted
-        ? "Lesson already completed"
-        : "Lesson marked as completed",
-      rewarded,
-      xpAdded,
+      message: result.completed
+        ? "Lesson marked as completed"
+        : "Lesson already completed",
       data: progressData,
     })
   } catch (error) {
