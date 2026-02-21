@@ -801,6 +801,15 @@ router.post("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
       lessonCompleted = result.completed
     }
 
+    // Save quiz attempt
+    enrollment.quizAttempts.push({
+      lessonId,
+      score: correctAnswers,
+      totalQuestions,
+      percentage,
+      passed,
+    })
+
     await user.save()
 
     res.json({
@@ -813,8 +822,138 @@ router.post("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
         lessonCompleted,
       },
     })
+
+
   } catch (error) {
     console.error("Quiz submission error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+
+router.put("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.params
+    const { quiz } = req.body
+
+    const course = await Course.findById(courseId)
+
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" })
+    }
+
+    let lessonFound = false
+
+    for (const section of course.curriculum) {
+      for (const lesson of section.lessons) {
+        if (lesson._id.toString() === lessonId) {
+          lesson.quiz = quiz
+          lessonFound = true
+        }
+      }
+    }
+
+    if (!lessonFound) {
+      return res.status(404).json({ success: false, message: "Lesson not found" })
+    }
+
+    await course.save()
+
+    res.json({ success: true, message: "Quiz added successfully" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: "Server error" })
+  }
+})
+router.get("/:courseId/lessons/:lessonId/quiz/history", auth, async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.params
+
+    const user = await User.findById(req.user._id)
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const attempts = (enrollment.quizAttempts || []).filter(
+      a => a.lessonId.toString() === lessonId
+    )
+
+    res.json({
+      success: true,
+      data: attempts,
+    })
+  } catch (error) {
+    console.error("Quiz history error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+})
+router.get("/:courseId/lessons/:lessonId/quiz/summary", auth, async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.params
+
+    const user = await User.findById(req.user._id)
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === courseId
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "User not enrolled in this course",
+      })
+    }
+
+    const attempts = (enrollment.quizAttempts || []).filter(
+      a => a.lessonId.toString() === lessonId
+    )
+
+    if (attempts.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          totalAttempts: 0,
+          bestScore: 0,
+          averageScore: 0,
+          lastAttempt: null,
+        }
+      })
+    }
+
+    const totalAttempts = attempts.length
+    const bestScore = Math.max(...attempts.map(a => a.percentage))
+    const averageScore =
+      Math.round(
+        attempts.reduce((sum, a) => sum + a.percentage, 0) / totalAttempts
+      )
+
+    const lastAttempt = attempts[attempts.length - 1]
+
+    res.json({
+      success: true,
+      data: {
+        totalAttempts,
+        bestScore,
+        averageScore,
+        lastAttempt,
+      }
+    })
+
+  } catch (error) {
+    console.error("Quiz summary error:", error)
     res.status(500).json({
       success: false,
       message: "Server error",

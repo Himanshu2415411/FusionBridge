@@ -215,6 +215,34 @@ const userSchema = new mongoose.Schema(
       },
     },
     ],
+    quizAttempts: [
+  {
+    lessonId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+    score: {
+      type: Number,
+      required: true,
+    },
+    totalQuestions: {
+      type: Number,
+      required: true,
+    },
+    percentage: {
+      type: Number,
+      required: true,
+    },
+    passed: {
+      type: Boolean,
+      required: true,
+    },
+    attemptedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+    ],
 
   }
 ],
