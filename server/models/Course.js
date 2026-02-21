@@ -3,6 +3,32 @@ const mongoose = require("mongoose")
 /* ===========================
    Lesson Schema
    =========================== */
+const quizQuestionSchema = new mongoose.Schema(
+  {
+    question: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    options: {
+      type: [String],
+      required: true,
+      validate: {
+        validator: function (arr) {
+          return arr.length >= 2
+        },
+        message: "A quiz question must have at least 2 options",
+      },
+    },
+    correctAnswer: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+  },
+  { _id: false }
+)
+
 const lessonSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -19,7 +45,8 @@ const lessonSchema = new mongoose.Schema({
   },
   duration: {
     type: Number,
-    required: true, // minutes
+    required: true,
+    min: 1,
   },
   resources: [
     {
@@ -27,7 +54,7 @@ const lessonSchema = new mongoose.Schema({
       url: String,
       type: {
         type: String,
-        enum: ["pdf", "link", "code", "quiz"],
+        enum: ["pdf", "link", "code"],
       },
     },
   ],
@@ -39,24 +66,10 @@ const lessonSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  quiz: [
-    {
-      question: {
-        type: String,
-        required: true,
-      },
-      options: [
-        {
-          type: String,
-          required: true,
-        },
-      ],
-      correctAnswer: {
-        type: Number, // index of correct option
-        required: true,
-      },
-    },
-  ],
+  quiz: {
+    type: [quizQuestionSchema],
+    default: [],
+  },
 })
 
 /* ===========================
