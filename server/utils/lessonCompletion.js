@@ -1,3 +1,5 @@
+const crypto = require("crypto")
+
 const COURSE_COMPLETION_XP = 200
 const BASE_LESSON_XP = 10
 
@@ -59,14 +61,19 @@ const completeLessonForUser = async (user, course, lessonId) => {
   const hasBadge = name =>
     user.badges.some(b => b.name === name)
 
-  const awardBadge = (name, icon) => {
-    user.badges.push({ name, icon })
+const awardBadge = (name, icon) => {
+  user.badges.push({ name, icon })
 
-    user.activities.unshift({
-      type: "badge_earned",
-      badgeName: name,
-    })
-  }
+  user.activities.unshift({
+    type: "badge_earned",
+    badgeName: name,
+  })
+
+  user.notifications.unshift({
+    type: "badge_earned",
+    message: `You earned the "${name}" badge!`
+  })
+}
 
   if (user.currentStreak === 3 && !hasBadge("3 Day Streak")) {
     awardBadge("3 Day Streak", "🔥")
@@ -106,12 +113,20 @@ const completeLessonForUser = async (user, course, lessonId) => {
     enrollment.completedAt = new Date()
     enrollment.certificateUnlocked = true
 
-    user.coursesCompleted += 1
+    enrollment.certificateId = crypto
+    .randomBytes(8)
+    .toString("hex")
+
+    user.coursesCompleted = (user.coursesCompleted || 0) + 1
     user.xp += COURSE_COMPLETION_XP
 
     user.activities.unshift({
       type: "course_completed",
       courseId: course._id,
+    })
+    user.notifications.unshift({
+      type: "lesson_completed",
+      message: `You completed a lesson in ${course.title}!`
     })
   }
 

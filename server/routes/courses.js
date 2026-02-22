@@ -385,6 +385,107 @@ router.get("/:id/certificate", auth, async (req, res) => {
 })
 
 
+const PDFDocument = require("pdfkit")
+
+router.get("/:id/certificate/download", auth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const user = await User.findById(req.user._id)
+    const course = await Course.findById(id).populate(
+      "instructor",
+      "firstName lastName"
+    )
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      ec => ec.course.toString() === id
+    )
+
+    if (!enrollment || !enrollment.certificateUnlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Certificate not unlocked",
+      })
+    }
+
+    const doc = new PDFDocument({
+      size: "A4",
+      layout: "landscape"
+    })
+
+    res.setHeader("Content-Type", "application/pdf")
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=FusionBridge-Certificate.pdf`
+    )
+
+    doc.pipe(res)
+
+    doc.fontSize(30).text("FusionBridge Certificate", {
+      align: "center"
+    })
+
+    doc.moveDown(2)
+
+    doc.fontSize(20).text(
+      `This certifies that`,
+      { align: "center" }
+    )
+
+    doc.moveDown()
+
+    doc.fontSize(28).text(
+      `${user.firstName} ${user.lastName}`,
+      { align: "center" }
+    )
+
+    doc.moveDown()
+
+    doc.fontSize(20).text(
+      `has successfully completed the course`,
+      { align: "center" }
+    )
+
+    doc.moveDown()
+
+    doc.fontSize(24).text(
+      `${course.title}`,
+      { align: "center" }
+    )
+
+    doc.moveDown(2)
+
+    doc.fontSize(16).text(
+      `Instructor: ${course.instructor.firstName} ${course.instructor.lastName}`,
+      { align: "center" }
+    )
+
+    doc.moveDown()
+
+    doc.text(
+      `Completed on: ${new Date(enrollment.completedAt).toDateString()}`,
+      { align: "center" }
+    )
+
+    doc.end()
+
+  } catch (error) {
+    console.error("Certificate download error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    })
+  }
+})
+
+
 router.get("/:id/timeline", auth, async (req, res) => {
   try {
     const courseId = req.params.id

@@ -7,6 +7,7 @@ const compression = require("compression")
 const morgan = require("morgan")
 require("dotenv").config()
 
+
 // Route imports
 const authRoutes = require("./routes/auth")
 const userRoutes = require("./routes/users")
@@ -16,6 +17,7 @@ const progressRoutes = require("./routes/progress")
 const communityRoutes = require("./routes/community")
 const earnRoutes = require("./routes/earn")
 const analyticsRoutes = require("./routes/analytics")
+const certificateRoutes = require("./routes/certificates")
 
 // DB connection
 const connectDB = require("./config/database")
@@ -81,6 +83,7 @@ app.use("/api/community", communityRoutes)
 app.use("/api/earn", earnRoutes)
 app.use("/api/analytics", analyticsRoutes)
 app.use("/api/lessons", require("./routes/lessons"))
+app.use("/api/certificates", certificateRoutes)
 
 
 /* ===========================

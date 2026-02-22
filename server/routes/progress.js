@@ -3,6 +3,7 @@ const User = require("../models/User")
 const Course = require("../models/Course")
 const { auth } = require("../middleware/auth")
 const { completeLessonForUser } = require("../utils/lessonCompletion")
+const crypto = require("crypto")
 
 const router = express.Router()
 

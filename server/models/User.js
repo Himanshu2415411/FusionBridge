@@ -167,86 +167,114 @@ const userSchema = new mongoose.Schema(
       default: Date.now,
     },
     enrolledCourses: [
-  {
-    course: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      required: true
-    },
-    completedLessons: [
-      {
-        type: mongoose.Schema.Types.ObjectId
-      }
-    ],
-    lastAccessedLesson: {
-      type: mongoose.Schema.Types.ObjectId,
-      default: null
-    },
-    enrolledAt: {
-      type: Date,
-      default: Date.now
-    },
-    isCourseCompleted: {
-      type: Boolean,
-      default: false
-    },
-    completedAt: {
-      type: Date,
-      default: null
-    },
-    certificateUnlocked: {
-      type: Boolean,
-      default: false
-    },
+    {
+      course: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+        required: true
+      },
+      completedLessons: [
+        {
+          type: mongoose.Schema.Types.ObjectId
+        }
+      ],
+      lastAccessedLesson: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null
+      },
+      enrolledAt: {
+        type: Date,
+        default: Date.now
+      },
+      isCourseCompleted: {
+        type: Boolean,
+        default: false
+      },
+      completedAt: {
+        type: Date,
+        default: null
+      },
+      certificateUnlocked: {
+        type: Boolean,
+        default: false
+      },
+      certificateId: {
+        type: String,
+        unique: true,
+        sparse: true,
+      },
 
-    lessonAccessHistory: [
+      lessonAccessHistory: [
+      {
+        lessonId: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+        },
+        lastAccessedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        accessCount: {
+          type: Number,
+          default: 1,
+        },
+      },
+      ],
+      quizAttempts: [
     {
       lessonId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
       },
-      lastAccessedAt: {
+      score: {
+        type: Number,
+        required: true,
+      },
+      totalQuestions: {
+        type: Number,
+        required: true,
+      },
+      percentage: {
+        type: Number,
+        required: true,
+      },
+      passed: {
+        type: Boolean,
+        required: true,
+      },
+      attemptedAt: {
         type: Date,
         default: Date.now,
       },
-      accessCount: {
-        type: Number,
-        default: 1,
-      },
     },
-    ],
-    quizAttempts: [
-  {
-    lessonId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
-    score: {
-      type: Number,
-      required: true,
-    },
-    totalQuestions: {
-      type: Number,
-      required: true,
-    },
-    percentage: {
-      type: Number,
-      required: true,
-    },
-    passed: {
-      type: Boolean,
-      required: true,
-    },
-    attemptedAt: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-    ],
+      ],
 
-  }
-],
+    }
+    ],
+    notifications: [
+      {
+        type: {
+          type: String,
+          enum: [
+            "lesson_completed",
+            "badge_earned",
+            "course_completed"
+          ]
+        },
+        message: String,
+        isRead: {
+          type: Boolean,
+          default: false
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
   },
+
+
   {
     timestamps: true,
     toJSON: { virtuals: true },
