@@ -18,6 +18,9 @@ const communityRoutes = require("./routes/community")
 const earnRoutes = require("./routes/earn")
 const analyticsRoutes = require("./routes/analytics")
 const certificateRoutes = require("./routes/certificates")
+const notificationRoutes = require("./routes/notifications")
+const cron = require("node-cron")
+const { resetWeeklyLeaderboard } = require("./utils/weeklyReset")
 
 // DB connection
 const connectDB = require("./config/database")
@@ -84,7 +87,14 @@ app.use("/api/earn", earnRoutes)
 app.use("/api/analytics", analyticsRoutes)
 app.use("/api/lessons", require("./routes/lessons"))
 app.use("/api/certificates", certificateRoutes)
+app.use("/api/notifications", notificationRoutes)
 
+
+//Auto Run Weekly Reset
+
+cron.schedule("0 0 * * 0", async () => {
+  await resetWeeklyLeaderboard()
+})
 
 /* ===========================
    HEALTH CHECK
@@ -174,3 +184,4 @@ function shutdown() {
     process.exit(0)
   })
 }
+

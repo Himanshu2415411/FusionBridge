@@ -3,6 +3,7 @@ const crypto = require("crypto")
 const COURSE_COMPLETION_XP = 200
 const BASE_LESSON_XP = 10
 
+
 const completeLessonForUser = async (user, course, lessonId) => {
   const enrollment = user.enrolledCourses.find(
     ec => ec.course.toString() === course._id.toString()
@@ -99,10 +100,14 @@ const awardBadge = (name, icon) => {
   }
 
   user.xp += lessonXp
+  user.weeklyXp += lessonXp
 
   // ---------- COURSE COMPLETION ----------
   const totalLessons = course.totalLessons || 0
   const completedCount = enrollment.completedLessons.length
+
+  user.xp += COURSE_COMPLETION_XP
+  user.weeklyXp += COURSE_COMPLETION_XP
 
   if (
     totalLessons > 0 &&
@@ -127,6 +132,10 @@ const awardBadge = (name, icon) => {
     user.notifications.unshift({
       type: "lesson_completed",
       message: `You completed a lesson in ${course.title}!`
+    })
+    user.notifications.unshift({
+      type: "course_completed",
+      message: `Congratulations! You completed ${course.title}.`
     })
   }
 

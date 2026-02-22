@@ -221,8 +221,8 @@ router.get("/leaderboard", async (req, res) => {
     const { limit = 10 } = req.query
 
     const users = await User.find()
-      .select("firstName lastName xp level currentStreak")
-      .sort({ xp: -1 })
+      .select("firstName lastName avatar weeklyXp")
+      .sort({ weeklyXp: -1 })
       .limit(parseInt(limit))
 
     const leaderboard = users.map((user, index) => ({
@@ -284,6 +284,74 @@ router.get("/recommendations", auth, async (req, res) => {
 
   } catch (error) {
     console.error("Recommendation error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    })
+  }
+})
+
+router.get("/learning-roadmap", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+
+    const enrolledCourseIds = user.enrolledCourses.map(
+      ec => ec.course.toString()
+    )
+
+    const enrolledCourses = await Course.find({
+      _id: { $in: enrolledCourseIds }
+    }).select("category level")
+
+    if (enrolledCourses.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          message: "Start with a beginner course to generate roadmap."
+        }
+      })
+    }
+
+    const categories = [...new Set(enrolledCourses.map(c => c.category))]
+
+    const levelOrder = ["beginner", "intermediate", "advanced"]
+
+    let highestLevelIndex = 0
+
+    enrolledCourses.forEach(course => {
+      const index = levelOrder.indexOf(course.level)
+      if (index > highestLevelIndex) {
+        highestLevelIndex = index
+      }
+    })
+
+    const nextLevel =
+      levelOrder[highestLevelIndex + 1] || null
+
+    let recommended = []
+
+    if (nextLevel) {
+      recommended = await Course.find({
+        isPublished: true,
+        category: { $in: categories },
+        level: nextLevel,
+        _id: { $nin: enrolledCourseIds }
+      })
+        .sort({ averageRating: -1, studentsEnrolled: -1 })
+        .limit(5)
+    }
+
+    res.json({
+      success: true,
+      data: {
+        currentLevel: levelOrder[highestLevelIndex],
+        nextLevel,
+        recommendedCourses: recommended
+      }
+    })
+
+  } catch (error) {
+    console.error("Roadmap error:", error)
     res.status(500).json({
       success: false,
       message: "Server error"

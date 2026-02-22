@@ -272,6 +272,14 @@ const userSchema = new mongoose.Schema(
         }
       }
     ],
+    weeklyXp: {
+      type: Number,
+      default: 0
+    },
+    lastWeeklyReset: {
+      type: Date,
+      default: Date.now
+    },
   },
 
 
