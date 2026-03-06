@@ -2,6 +2,7 @@ const express = require("express")
 const Course = require("../models/Course")
 const User = require("../models/User")
 const { auth, authorize } = require("../middleware/auth")
+const { getPaginationParams } = require("../utils/pagination")
 
 const router = express.Router()
 
@@ -218,24 +219,30 @@ router.get("/platform-stats", async (req, res) => {
 ========================================================= */
 router.get("/leaderboard", async (req, res) => {
   try {
-    const { limit = 10 } = req.query
+    // Get pagination parameters
+    const { page, limit, skip } = getPaginationParams(req.query)
 
     const users = await User.find()
       .select("firstName lastName avatar weeklyXp")
       .sort({ weeklyXp: -1 })
-      .limit(parseInt(limit))
+      .skip(skip)
+      .limit(limit)
 
     const leaderboard = users.map((user, index) => ({
-      rank: index + 1,
+      rank: skip + index + 1,
       name: `${user.firstName} ${user.lastName}`,
-      xp: user.xp,
-      level: user.level,
-      currentStreak: user.currentStreak,
+      avatar: user.avatar,
+      weeklyXp: user.weeklyXp,
     }))
+
+    const totalUsers = await User.countDocuments()
+    const totalPages = Math.ceil(totalUsers / limit)
 
     res.json({
       success: true,
-      data: leaderboard,
+      page,
+      totalPages,
+      leaderboard,
     })
 
   } catch (error) {

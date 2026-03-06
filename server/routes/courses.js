@@ -4,6 +4,8 @@ const User = require("../models/User")
 const { auth, optionalAuth, authorize } = require("../middleware/auth")
 const { body, validationResult } = require("express-validator")
 const { completeLessonForUser } = require("../utils/lessonCompletion")
+const { recordQuizAttempt } = require("../services/quizAttempt.service")
+const { getPaginationParams } = require("../utils/pagination")
 
 const router = express.Router()
 
@@ -16,9 +18,10 @@ router.get("/", optionalAuth, async (req, res) => {
       search = "",
       category,
       level,
-      page = 1,
-      limit = 10,
     } = req.query
+
+    // Get pagination parameters
+    const { page, limit, skip } = getPaginationParams(req.query)
 
     const query = { isPublished: true }
 
@@ -34,13 +37,11 @@ router.get("/", optionalAuth, async (req, res) => {
       query.level = level
     }
 
-    const skip = (Number(page) - 1) * Number(limit)
-
     const courses = await Course.find(query)
       .populate("instructor", "firstName lastName avatar")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(Number(limit))
+      .limit(limit)
 
     // 👇 Preserve your enrollment + progress logic
     if (req.user) {
@@ -67,16 +68,15 @@ router.get("/", optionalAuth, async (req, res) => {
       })
     }
 
-    const total = await Course.countDocuments(query)
+    const totalCourses = await Course.countDocuments(query)
+    const totalPages = Math.ceil(totalCourses / limit)
 
     res.json({
       success: true,
-      pagination: {
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(total / limit),
-      },
+      page,
+      limit,
+      totalCourses,
+      totalPages,
       courses,
     })
   } catch (error) {
@@ -796,6 +796,9 @@ router.post("/:id/review", auth, async (req, res) => {
    =========================== */
 router.get("/:id/reviews", async (req, res) => {
   try {
+    // Get pagination parameters
+    const { page, limit, skip } = getPaginationParams(req.query)
+
     const course = await Course.findById(req.params.id)
       .populate("reviews.user", "firstName lastName avatar")
       .lean()
@@ -807,13 +810,22 @@ router.get("/:id/reviews", async (req, res) => {
       })
     }
 
+    const totalReviews = course.reviews ? course.reviews.length : 0
+    const totalPages = Math.ceil(totalReviews / limit)
+
+    // Paginate reviews (sort by newest first)
+    const paginatedReviews = course.reviews
+      ? course.reviews.slice(skip, skip + limit)
+      : []
+
     res.json({
       success: true,
-      data: {
-        averageRating: course.averageRating,
-        reviewCount: course.reviews ? course.reviews.length : 0,
-        reviews: course.reviews,
-      },
+      page,
+      limit,
+      totalReviews,
+      totalPages,
+      averageRating: course.averageRating,
+      reviews: paginatedReviews,
     })
   } catch (error) {
     console.error("Get reviews error:", error)
@@ -890,6 +902,18 @@ router.post("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
 
     const passed = percentage >= 60
 
+    // Record quiz attempt
+    await recordQuizAttempt(
+      user._id,
+      course._id,
+      lessonId,
+      answers,
+      percentage,
+      score,
+      lesson.quiz.length,
+      passed
+    )
+
     // 🔥 Auto-complete lesson if passed
     let lessonCompleted = false
 
@@ -905,8 +929,8 @@ router.post("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
     // Save quiz attempt
     enrollment.quizAttempts.push({
       lessonId,
-      score: correctAnswers,
-      totalQuestions,
+      score,
+      totalQuestions: lesson.quiz.length,
       percentage,
       passed,
     })
