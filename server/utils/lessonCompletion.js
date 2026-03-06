@@ -1,4 +1,5 @@
 const crypto = require("crypto")
+const { issueCertificate } = require("../services/certificate.service")
 
 const COURSE_COMPLETION_XP = 200
 const BASE_LESSON_XP = 10
@@ -137,6 +138,13 @@ const awardBadge = (name, icon) => {
       type: "course_completed",
       message: `Congratulations! You completed ${course.title}.`
     })
+
+    // Issue certificate
+    try {
+      await issueCertificate(user, course)
+    } catch (error) {
+      console.error("Error issuing certificate:", error)
+    }
   }
 
   await user.save()
