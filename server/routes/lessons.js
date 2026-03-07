@@ -5,7 +5,7 @@ const { getQuizAttempts } = require("../controllers/quiz.controller")
 
 const router = express.Router()
 
-router.get("/:courseId/:lessonId", optionalAuth, getLessonDetails)
+router.get("/:courseId/:lessonId", auth, getLessonDetails)
 
 // GET /api/lessons/:lessonId/quiz-attempts - Get quiz attempt history for a lesson
 router.get("/:lessonId/quiz-attempts", auth, getQuizAttempts)

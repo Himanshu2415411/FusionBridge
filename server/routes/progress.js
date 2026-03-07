@@ -49,11 +49,7 @@ const buildProgressPayload = ({ courseId, lessonId, enrollment, course }) => {
  * POST /api/progress/lesson
  * Marks a lesson as completed
  */
-router.post(
-  "/lesson",
-  auth,
-  updateProgressValidation,
-  validateRequest,
+router.post("/lesson", auth, updateProgressValidation, validateRequest,
   async (req, res) => {
     try {
       const { courseId, lessonId } = req.body

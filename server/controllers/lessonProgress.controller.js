@@ -39,21 +39,23 @@ const getLessonDetails = async (req, res) => {
 
     const { section, lesson } = found
 
-    let completed = false
+    // Check enrollment
+    const user = await User.findById(req.user._id)
 
-    if (req.user) {
-      const user = await User.findById(req.user._id)
+    const enrollment = user.enrolledCourses.find(
+      (ec) => ec.course.toString() === courseId.toString()
+    )
 
-      const enrollment = user.enrolledCourses.find(
-        (ec) => ec.course.toString() === courseId.toString()
-      )
-
-      if (enrollment) {
-        completed = enrollment.completedLessons.some(
-          (id) => id.toString() === lessonId.toString()
-        )
-      }
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "You must enroll in this course to access lessons",
+      })
     }
+
+    const completed = enrollment.completedLessons.some(
+      (id) => id.toString() === lessonId.toString()
+    )
 
     return res.json({
       success: true,

@@ -578,14 +578,14 @@ router.post("/:id/enroll", auth, async (req, res) => {
 
     const user = await User.findById(req.user._id)
 
-    const alreadyEnrolled = user.enrolledCourses.find(
-      ec => ec.course.toString() === course._id.toString()
+    const alreadyEnrolled = user.enrolledCourses.some(
+      ec => ec.course.toString() === req.params.id
     )
 
     if (alreadyEnrolled) {
       return res.status(400).json({
         success: false,
-        message: "Already enrolled in this course",
+        message: "User already enrolled in this course",
       })
     }
 
@@ -855,7 +855,7 @@ router.post(
     if (!enrollment) {
       return res.status(403).json({
         success: false,
-        message: "User not enrolled in this course",
+        message: "You must enroll in this course to attempt quizzes",
       })
     }
 

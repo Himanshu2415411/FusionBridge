@@ -12,15 +12,21 @@ const completeLessonForUser = async (user, course, lessonId) => {
 
   if (!enrollment) return { completed: false }
 
+  // Check if lesson was already completed
   const alreadyCompleted = enrollment.completedLessons.some(
     id => id.toString() === lessonId.toString()
   )
 
   if (alreadyCompleted) {
-    return { completed: false }
+    // Lesson already completed - do NOT award XP or update streak
+    return {
+      completed: true,
+      alreadyCompleted: true,
+      message: "Lesson already marked as completed"
+    }
   }
 
-  // ---------- Add Lesson ----------
+  // ---------- Add Lesson (First Completion) ----------
   enrollment.completedLessons.push(lessonId)
   enrollment.lastAccessedLesson = lessonId
 
@@ -107,9 +113,6 @@ const awardBadge = (name, icon) => {
   const totalLessons = course.totalLessons || 0
   const completedCount = enrollment.completedLessons.length
 
-  user.xp += COURSE_COMPLETION_XP
-  user.weeklyXp += COURSE_COMPLETION_XP
-
   if (
     totalLessons > 0 &&
     completedCount === totalLessons &&
@@ -124,7 +127,10 @@ const awardBadge = (name, icon) => {
     .toString("hex")
 
     user.coursesCompleted = (user.coursesCompleted || 0) + 1
+    
+    // Award course completion XP
     user.xp += COURSE_COMPLETION_XP
+    user.weeklyXp += COURSE_COMPLETION_XP
 
     user.activities.unshift({
       type: "course_completed",
