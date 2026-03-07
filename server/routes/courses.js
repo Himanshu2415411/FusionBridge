@@ -6,6 +6,9 @@ const { body, validationResult } = require("express-validator")
 const { completeLessonForUser } = require("../utils/lessonCompletion")
 const { recordQuizAttempt } = require("../services/quizAttempt.service")
 const { getPaginationParams } = require("../utils/pagination")
+const { createCourseValidation } = require("../middleware/validators/course.validator")
+const { submitQuizValidationWithParams } = require("../middleware/validators/quiz.validator")
+const validateRequest = require("../middleware/validateRequest")
 
 const router = express.Router()
 
@@ -626,26 +629,12 @@ router.put("/:id/progress", auth, async (req, res) => {
    =========================== */
 router.post(
   "/",
-  [
-    auth,
-    authorize("admin", "instructor"),
-    body("title").isLength({ min: 5 }),
-    body("description").isLength({ min: 20 }),
-    body("category").notEmpty(),
-    body("level").isIn(["beginner", "intermediate", "advanced"]),
-    body("price").isNumeric(),
-    body("duration").isNumeric(),
-  ],
+  auth,
+  authorize("admin", "instructor"),
+  createCourseValidation,
+  validateRequest,
   async (req, res) => {
     try {
-      const errors = validationResult(req)
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          errors: errors.array(),
-        })
-      }
-
       const course = new Course({
         ...req.body,
         instructor: req.user._id,
@@ -839,17 +828,15 @@ router.get("/:id/reviews", async (req, res) => {
 /* ===========================
    POST /api/courses/:courseId/lessons/:lessonId/quiz
    =========================== */
-router.post("/:courseId/lessons/:lessonId/quiz", auth, async (req, res) => {
-  try {
-    const { answers } = req.body
-    const { courseId, lessonId } = req.params
-
-    if (!Array.isArray(answers)) {
-      return res.status(400).json({
-        success: false,
-        message: "Answers must be an array",
-      })
-    }
+router.post(
+  "/:courseId/lessons/:lessonId/quiz",
+  auth,
+  submitQuizValidationWithParams,
+  validateRequest,
+  async (req, res) => {
+    try {
+      const { answers } = req.body
+      const { courseId, lessonId } = req.params
 
     const course = await Course.findById(courseId)
     const user = await User.findById(req.user._id)

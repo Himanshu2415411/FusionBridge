@@ -4,6 +4,8 @@ const Course = require("../models/Course")
 const { auth } = require("../middleware/auth")
 const { completeLessonForUser } = require("../utils/lessonCompletion")
 const crypto = require("crypto")
+const { updateProgressValidation } = require("../middleware/validators/progress.validator")
+const validateRequest = require("../middleware/validateRequest")
 
 const router = express.Router()
 
@@ -47,16 +49,14 @@ const buildProgressPayload = ({ courseId, lessonId, enrollment, course }) => {
  * POST /api/progress/lesson
  * Marks a lesson as completed
  */
-router.post("/lesson", auth, async (req, res) => {
-  try {
-    const { courseId, lessonId } = req.body
-
-    if (!courseId || !lessonId) {
-      return res.status(400).json({
-        success: false,
-        message: "courseId and lessonId are required",
-      })
-    }
+router.post(
+  "/lesson",
+  auth,
+  updateProgressValidation,
+  validateRequest,
+  async (req, res) => {
+    try {
+      const { courseId, lessonId } = req.body
 
     const user = await User.findById(req.user._id)
     const course = await Course.findById(courseId)
