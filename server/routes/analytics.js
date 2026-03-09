@@ -1,6 +1,7 @@
 const express = require("express")
 const Course = require("../models/Course")
 const User = require("../models/User")
+const QuizAttempt = require("../models/QuizAttempt")
 const { auth, authorize } = require("../middleware/auth")
 const { getPaginationParams } = require("../utils/pagination")
 const { resetWeeklyXP } = require("../utils/weeklyReset")
@@ -188,20 +189,19 @@ router.get("/dashboard", [auth, authorize("instructor", "admin")], async (req, r
 router.get("/platform-stats", async (req, res) => {
   try {
     const totalUsers = await User.countDocuments()
-    const totalCourses = await Course.countDocuments({ isPublished: true })
-
-    const completedCoursesAgg = await User.aggregate([
-      { $unwind: "$enrolledCourses" },
-      { $match: { "enrolledCourses.isCourseCompleted": true } },
-      { $count: "count" }
-    ])
+    const totalCourses = await Course.countDocuments()
+    const totalQuizAttempts = await QuizAttempt.countDocuments()
+    const activeLearners = await User.countDocuments({
+      "enrolledCourses.0": { $exists: true }
+    })
 
     res.json({
       success: true,
-      data: {
+      stats: {
         totalUsers,
         totalCourses,
-        coursesCompleted: completedCoursesAgg[0]?.count || 0,
+        activeLearners,
+        totalQuizAttempts
       }
     })
 
@@ -379,6 +379,113 @@ router.post("/reset-weekly-xp", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Reset failed"
+    })
+  }
+})
+
+/* =========================================================
+   GET /api/analytics/course-completion
+   Overall course completion rate
+========================================================= */
+router.get("/course-completion", async (req, res) => {
+  try {
+    const users = await User.find().select("enrolledCourses")
+
+    let totalEnrollments = 0
+    let completedCourses = 0
+
+    users.forEach(user => {
+      user.enrolledCourses.forEach(ec => {
+        totalEnrollments++
+        if (ec.progress === 100) {
+          completedCourses++
+        }
+      })
+    })
+
+    const completionRate =
+      totalEnrollments === 0
+        ? 0
+        : Math.round((completedCourses / totalEnrollments) * 100)
+
+    res.json({
+      success: true,
+      completionRate,
+      totalEnrollments,
+      completedCourses
+    })
+
+  } catch (error) {
+    console.error("Course completion error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    })
+  }
+})
+
+/* =========================================================
+   GET /api/analytics/hardest-quizzes
+   Top 5 lessons with lowest average quiz score
+========================================================= */
+router.get("/hardest-quizzes", async (req, res) => {
+  try {
+    const hardestQuizzes = await QuizAttempt.aggregate([
+      {
+        $group: {
+          _id: "$lesson",
+          averageScore: { $avg: "$score" },
+          totalAttempts: { $sum: 1 }
+        }
+      },
+      { $sort: { averageScore: 1 } },
+      { $limit: 5 },
+      {
+        $project: {
+          _id: 0,
+          lesson: "$_id",
+          averageScore: { $round: ["$averageScore", 2] },
+          totalAttempts: 1
+        }
+      }
+    ])
+
+    res.json({
+      success: true,
+      hardestQuizzes
+    })
+
+  } catch (error) {
+    console.error("Hardest quizzes error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    })
+  }
+})
+
+/* =========================================================
+   GET /api/analytics/weekly-active
+   Count of users active in the last 7 days
+========================================================= */
+router.get("/weekly-active", async (req, res) => {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+    const weeklyActiveUsers = await User.countDocuments({
+      updatedAt: { $gte: sevenDaysAgo }
+    })
+
+    res.json({
+      success: true,
+      weeklyActiveUsers
+    })
+
+  } catch (error) {
+    console.error("Weekly active users error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error"
     })
   }
 })
