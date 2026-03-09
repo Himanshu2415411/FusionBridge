@@ -21,6 +21,7 @@ const certificateRoutes = require("./routes/certificates")
 const notificationRoutes = require("./routes/notifications")
 const cron = require("node-cron")
 const { resetWeeklyXP } = require("./utils/weeklyReset")
+const growRoutes = require("./routes/grow")
 
 // DB connection
 const connectDB = require("./config/database")
@@ -88,6 +89,7 @@ app.use("/api/analytics", analyticsRoutes)
 app.use("/api/lessons", require("./routes/lessons"))
 app.use("/api/certificates", certificateRoutes)
 app.use("/api/notifications", notificationRoutes)
+app.use("/api/grow", growRoutes)
 
 
 //Auto Run Weekly Reset
