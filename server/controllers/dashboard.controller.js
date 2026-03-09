@@ -1,4 +1,5 @@
 const User = require("../models/User")
+const { getPaginationParams } = require("../utils/pagination")
 
 const getDashboard = async (req, res) => {
   try {
@@ -50,6 +51,34 @@ const getDashboard = async (req, res) => {
   }
 }
 
+const getLeaderboard = async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query)
+
+    const users = await User.find({})
+      .sort({ weeklyXP: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select("firstName lastName avatar weeklyXP xp")
+
+    const totalUsers = await User.countDocuments()
+
+    res.json({
+      success: true,
+      page,
+      totalPages: Math.ceil(totalUsers / limit),
+      leaderboard: users,
+    })
+  } catch (error) {
+    console.error("Leaderboard error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+}
+
 module.exports = {
   getDashboard,
+  getLeaderboard,
 }

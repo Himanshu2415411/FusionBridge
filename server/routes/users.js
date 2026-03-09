@@ -310,7 +310,7 @@ router.get("/", [auth, authorize("admin")], async (req, res) => {
 router.get("/activity", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .select("activities firstName lastName")
+      .select("activityFeed")
       .lean()
 
     if (!user) {
@@ -320,18 +320,12 @@ router.get("/activity", auth, async (req, res) => {
       })
     }
 
-    // Sort newest first
-    const activities = (user.activities || []).slice(0, 20)
-   // limit to last 20
+    const activities = (user.activityFeed || [])
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 
     res.json({
       success: true,
-      data: {
-        user: {
-          name: `${user.firstName} ${user.lastName}`,
-        },
-        activities,
-      },
+      activities,
     })
   } catch (error) {
     console.error("Activity feed error:", error)

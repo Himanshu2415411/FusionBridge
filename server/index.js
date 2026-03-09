@@ -20,7 +20,7 @@ const analyticsRoutes = require("./routes/analytics")
 const certificateRoutes = require("./routes/certificates")
 const notificationRoutes = require("./routes/notifications")
 const cron = require("node-cron")
-const { resetWeeklyLeaderboard } = require("./utils/weeklyReset")
+const { resetWeeklyXP } = require("./utils/weeklyReset")
 
 // DB connection
 const connectDB = require("./config/database")
@@ -93,8 +93,10 @@ app.use("/api/notifications", notificationRoutes)
 //Auto Run Weekly Reset
 
 cron.schedule("0 0 * * 0", async () => {
-  await resetWeeklyLeaderboard()
+  console.log("Running weekly leaderboard reset...")
+  await resetWeeklyXP()
 })
+console.log("Weekly leaderboard reset scheduler active")
 
 /* ===========================
    HEALTH CHECK

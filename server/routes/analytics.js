@@ -3,6 +3,7 @@ const Course = require("../models/Course")
 const User = require("../models/User")
 const { auth, authorize } = require("../middleware/auth")
 const { getPaginationParams } = require("../utils/pagination")
+const { resetWeeklyXP } = require("../utils/weeklyReset")
 
 const router = express.Router()
 
@@ -362,6 +363,22 @@ router.get("/learning-roadmap", auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error"
+    })
+  }
+})
+
+router.post("/reset-weekly-xp", async (req, res) => {
+  try {
+    await resetWeeklyXP()
+
+    res.json({
+      success: true,
+      message: "Weekly XP leaderboard reset successfully"
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Reset failed"
     })
   }
 })

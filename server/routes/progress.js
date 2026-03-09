@@ -6,6 +6,7 @@ const { completeLessonForUser } = require("../utils/lessonCompletion")
 const crypto = require("crypto")
 const { updateProgressValidation } = require("../middleware/validators/progress.validator")
 const validateRequest = require("../middleware/validateRequest")
+const { markLessonComplete } = require("../controllers/lessonProgress.controller")
 
 const router = express.Router()
 
@@ -528,5 +529,6 @@ router.get("/course/:courseId/stats", auth, async (req, res) => {
   }
 })
 
+router.post("/complete", auth, markLessonComplete)
 
 module.exports = router

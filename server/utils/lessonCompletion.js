@@ -153,6 +153,11 @@ const awardBadge = (name, icon) => {
     }
   }
 
+  // Limit activity history to the 50 most recent entries
+  if (user.activities.length > 50) {
+    user.activities = user.activities.slice(0, 50)
+  }
+
   await user.save()
 
   return { completed: true }

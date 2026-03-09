@@ -86,6 +86,61 @@ const getLessonDetails = async (req, res) => {
   }
 }
 
+const markLessonComplete = async (req, res) => {
+  try {
+    const { lessonId, courseId } = req.body
+
+    const user = await User.findById(req.user._id)
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    const enrollment = user.enrolledCourses.find(
+      (ec) => ec.course.toString() === courseId.toString()
+    )
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: "You must enroll in this course first",
+      })
+    }
+
+    const alreadyCompleted = enrollment.completedLessons.some(
+      (id) => id.toString() === lessonId.toString()
+    )
+
+    let xpAwarded = 0
+
+    if (!alreadyCompleted) {
+      enrollment.completedLessons.push(lessonId)
+
+      // simple XP reward system
+      xpAwarded = 20
+      user.xp = (user.xp || 0) + xpAwarded
+    }
+
+    await user.save()
+
+    return res.json({
+      success: true,
+      xpAwarded,
+    })
+  } catch (error) {
+    console.error("Lesson completion error:", error)
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
+  }
+}
+
 module.exports = {
   getLessonDetails,
+  markLessonComplete,
 }

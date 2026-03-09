@@ -1,13 +1,17 @@
 const express = require("express")
-const { auth, optionalAuth } = require("../middleware/auth")
+const { auth } = require("../middleware/auth")
 const { getLessonDetails } = require("../controllers/lessonProgress.controller")
-const { getQuizAttempts } = require("../controllers/quiz.controller")
+const { submitQuiz, getQuizAttempts } = require("../controllers/quiz.controller")
 
 const router = express.Router()
 
-router.get("/:courseId/:lessonId", auth, getLessonDetails)
+// submit quiz
+router.post("/:lessonId/quiz", auth, submitQuiz)
 
-// GET /api/lessons/:lessonId/quiz-attempts - Get quiz attempt history for a lesson
+// get quiz attempt history
 router.get("/:lessonId/quiz-attempts", auth, getQuizAttempts)
+
+// get lesson details
+router.get("/:courseId/:lessonId", auth, getLessonDetails)
 
 module.exports = router

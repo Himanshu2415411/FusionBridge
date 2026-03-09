@@ -73,7 +73,21 @@ const issueCertificate = async (user, course) => {
 
   // Save and return
   await certificate.save()
-  
+
+  // Record certificate activity
+  user.activityFeed = user.activityFeed || []
+  user.activityFeed.push({
+    type: "certificate_earned",
+    message: "Earned certificate for course",
+    timestamp: new Date(),
+  })
+
+  if (user.activityFeed.length > 50) {
+    user.activityFeed = user.activityFeed.slice(-50)
+  }
+
+  await user.save()
+
   return certificate
 }
 
