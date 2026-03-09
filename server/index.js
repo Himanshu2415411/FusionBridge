@@ -103,10 +103,9 @@ console.log("Weekly leaderboard reset scheduler active")
    =========================== */
 app.get("/api/health", (req, res) => {
   res.json({
-    status: "OK",
+    status: "ok",
     uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
+    timestamp: new Date(),
   })
 })
 
