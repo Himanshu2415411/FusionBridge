@@ -1,4 +1,5 @@
 const CareerProfile = require("../models/CareerProfile");
+const { generateResume } = require("../services/resume.service");
 
 const getCareerProfile = async (req, res) => {
   try {
@@ -51,8 +52,19 @@ const updateCareerProfile = async (req, res) => {
   }
 };
 
+const generateUserResume = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const resume = await generateResume(userId);
+    res.status(200).json({ success: true, resume });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 module.exports = {
   getCareerProfile,
   createCareerProfile,
   updateCareerProfile,
+  generateUserResume,
 };
