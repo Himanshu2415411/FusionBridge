@@ -521,6 +521,9 @@ const {
   getProjects,
   updateProjectStatus,
   generateProjectProposal,
+  estimateProjectDetails,
+  generateProjectContract,
+  getContracts,
 } = require("../controllers/earn.controller")
 
 // @route   POST /api/earn/workspace/projects
@@ -542,5 +545,20 @@ router.put("/workspace/projects/:projectId", auth, updateProjectStatus)
 // @desc    Generate a proposal for a workspace project
 // @access  Private
 router.post("/workspace/projects/:projectId/proposal", auth, generateProjectProposal)
+
+// @route   GET /api/earn/workspace/projects/:projectId/estimate
+// @desc    Estimate time and budget for a workspace project
+// @access  Private
+router.get("/workspace/projects/:projectId/estimate", auth, estimateProjectDetails)
+
+// @route   POST /api/earn/workspace/projects/:projectId/contract
+// @desc    Generate and save a contract for a workspace project
+// @access  Private
+router.post("/workspace/projects/:projectId/contract", auth, generateProjectContract)
+
+// @route   GET /api/earn/workspace/contracts
+// @desc    Get all contracts for the authenticated user
+// @access  Private
+router.get("/workspace/contracts", auth, getContracts)
 
 module.exports = router
