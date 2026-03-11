@@ -1,55 +1,44 @@
 const express = require("express")
 const { auth } = require("../middleware/auth")
-const User = require("../models/User")
+const Notification = require("../models/Notification")
 
 const router = express.Router()
 
-// Get user notifications
+// @route   GET /api/notifications
+// @desc    Get latest 20 notifications for the authenticated user
+// @access  Private
 router.get("/", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id)
-      .select("notifications")
+    const notifications = await Notification.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(20)
 
-    res.json({
-      success: true,
-      data: user.notifications
-    })
+    res.json({ success: true, data: notifications })
   } catch (error) {
     console.error("Get notifications error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    })
+    res.status(500).json({ success: false, message: "Server error" })
   }
 })
 
-// Mark notification as read
+// @route   PATCH /api/notifications/:id/read
+// @desc    Mark a notification as read
+// @access  Private
 router.patch("/:id/read", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id)
-
-    const notification = user.notifications.id(req.params.id)
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      { read: true },
+      { new: true }
+    )
 
     if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: "Notification not found"
-      })
+      return res.status(404).json({ success: false, message: "Notification not found" })
     }
 
-    notification.isRead = true
-    await user.save()
-
-    res.json({
-      success: true,
-      message: "Notification marked as read"
-    })
+    res.json({ success: true, message: "Notification marked as read", data: notification })
   } catch (error) {
     console.error("Mark notification error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    })
+    res.status(500).json({ success: false, message: "Server error" })
   }
 })
 
