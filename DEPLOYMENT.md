@@ -253,6 +253,26 @@ docker-compose exec mongodb mongo --eval "db.adminCommand('ismaster')"
 - Configure database indexes
 - Use compression middleware
 
+## 🧩 Runtime Components
+
+### Backend Dependencies
+
+| Package | Purpose |
+|---|---|
+| `express-rate-limit` | Rate-limits incoming API requests to protect endpoints from abuse. Applied globally on server startup in `index.js`. |
+| `node-cache` | In-process memory cache for expensive aggregation responses. Configured in `server/utils/cache.js` with a default TTL of 60 seconds. Used by the dashboard overview and activity feed endpoints. |
+
+Both packages are declared in `server/package.json` and installed automatically via `npm install` during deployment.
+
+### Index Initialization
+
+All MongoDB indexes are declared directly on Mongoose schemas using `Schema.index()`. When the application starts and Mongoose establishes a connection to the database, it automatically calls `ensureIndexes()` for every registered model.
+
+- In **development**, `autoIndex` is enabled by default — indexes are created or verified on every startup.
+- In **production**, it is recommended to set `autoIndex: false` in the Mongoose connection options and instead run index creation as part of a migration step to avoid startup delays on large collections.
+
+No manual index creation scripts are required; all index definitions live alongside their model schemas.
+
 ## 🔄 CI/CD Pipeline
 
 The included GitHub Actions workflow automatically:
