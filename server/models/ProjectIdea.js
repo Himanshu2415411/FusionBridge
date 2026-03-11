@@ -27,4 +27,6 @@ const ProjectIdeaSchema = new mongoose.Schema({
   },
 })
 
+ProjectIdeaSchema.index({ title: "text", description: "text", techStack: "text" })
+
 module.exports = mongoose.model("ProjectIdea", ProjectIdeaSchema)

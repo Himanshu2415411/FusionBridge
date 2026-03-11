@@ -19,4 +19,6 @@ const RoleSkillSchema = new mongoose.Schema({
   },
 })
 
+RoleSkillSchema.index({ role: "text", skills: "text" })
+
 module.exports = mongoose.model("RoleSkill", RoleSkillSchema)
