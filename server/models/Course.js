@@ -327,5 +327,6 @@ courseSchema.statics.getFeaturedCourses = function (limit = 6) {
 }
 
 courseSchema.index({ title: "text", description: "text", tags: "text" })
+courseSchema.index({ instructor: 1 })
 
 module.exports = mongoose.model("Course", courseSchema)

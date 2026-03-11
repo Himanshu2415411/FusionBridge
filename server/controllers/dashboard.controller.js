@@ -4,6 +4,7 @@ const FreelanceProject = require("../models/FreelanceProject")
 const Activity = require("../models/Activity")
 const Notification = require("../models/Notification")
 const { getPaginationParams } = require("../utils/pagination")
+const { getCache, setCache } = require("../utils/cache")
 
 const getDashboard = async (req, res) => {
   try {
@@ -85,6 +86,16 @@ const getLeaderboard = async (req, res) => {
 const getDashboardOverview = async (req, res) => {
   try {
     const userId = req.user._id
+    const cacheKey = `dashboard_${userId}`
+
+    const cachedData = getCache(cacheKey)
+    if (cachedData) {
+      return res.json({
+        success: true,
+        dashboard: cachedData,
+        cached: true,
+      })
+    }
 
     const [user, profile, projects, recentActivities, unreadNotifications] =
       await Promise.all([
@@ -111,20 +122,25 @@ const getDashboardOverview = async (req, res) => {
       (p) => p.status === "completed"
     ).length
 
+    const dashboardData = {
+      xp: user.xp || 0,
+      streak: user.currentStreak || 0,
+      enrolledCourses: (user.enrolledCourses || []).length,
+      completedLessons,
+      targetRole: profile?.targetRole || null,
+      skills: profile?.skills || [],
+      activeProjects,
+      completedProjects,
+      unreadNotifications,
+      recentActivities,
+    }
+
+    setCache(cacheKey, dashboardData)
+
     res.json({
       success: true,
-      dashboard: {
-        xp: user.xp || 0,
-        streak: user.currentStreak || 0,
-        enrolledCourses: (user.enrolledCourses || []).length,
-        completedLessons,
-        targetRole: profile?.targetRole || null,
-        skills: profile?.skills || [],
-        activeProjects,
-        completedProjects,
-        unreadNotifications,
-        recentActivities,
-      },
+      dashboard: dashboardData,
+      cached: false,
     })
   } catch (error) {
     console.error("Dashboard overview error:", error)

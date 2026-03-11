@@ -62,6 +62,7 @@
     "morgan": "latest",
     "next": "^14.2.31",
     "next-themes": "latest",
+    "node-cache": "^5.1.2",
     "path": "latest",
     "react": "^18",
     "react-day-picker": "9.8.0",

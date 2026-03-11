@@ -59,4 +59,6 @@ const CareerProfileSchema = new mongoose.Schema({
   },
 });
 
+CareerProfileSchema.index({ user: 1 })
+
 module.exports = mongoose.model("CareerProfile", CareerProfileSchema);

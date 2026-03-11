@@ -52,4 +52,6 @@ const FreelanceProjectSchema = new mongoose.Schema({
   },
 });
 
+FreelanceProjectSchema.index({ user: 1 })
+
 module.exports = mongoose.model("FreelanceProject", FreelanceProjectSchema);
