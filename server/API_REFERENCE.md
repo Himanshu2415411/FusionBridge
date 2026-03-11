@@ -16,6 +16,10 @@ All protected endpoints require the `Authorization: Bearer <token>` header.
 6. [Certificates](#6-certificates)
 7. [Leaderboard](#7-leaderboard)
 8. [Analytics](#8-analytics)
+9. [Dashboard](#9-dashboard)
+10. [Activity Feed](#10-activity-feed)
+11. [Notifications](#11-notifications)
+12. [Search](#12-search)
 
 ---
 
@@ -662,4 +666,236 @@ Returns the count of users who have been active (based on `updatedAt`) within th
 
 | Status | Reason |
 |---|---|
+| `500` | Server error |
+
+---
+
+## 9. Dashboard
+
+### GET /api/dashboard/overview
+
+Returns aggregated dashboard data for the authenticated user, gathered from multiple domains in a single request. Responses are cached per user for 60 seconds.
+
+**Authentication:** Required
+
+**Request Body:** None
+
+**Response `200` (cache miss):**
+
+```json
+{
+  "success": true,
+  "cached": false,
+  "dashboard": {
+    "xp": 1240,
+    "streak": 5,
+    "enrolledCourses": 3,
+    "completedLessons": 18,
+    "targetRole": "Backend Engineer",
+    "skills": ["Node.js", "MongoDB"],
+    "activeProjects": 2,
+    "completedProjects": 1,
+    "unreadNotifications": 4,
+    "recentActivities": [
+      {
+        "_id": "...",
+        "type": "LESSON_COMPLETED",
+        "message": "Completed lesson: Introduction to Express",
+        "createdAt": "2026-03-11T08:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Response `200` (cache hit):**
+
+Identical shape with `"cached": true`.
+
+**Error Responses:**
+
+| Status | Reason |
+|---|---|
+| `401` | Not authenticated |
+| `404` | User not found |
+| `500` | Server error |
+
+---
+
+## 10. Activity Feed
+
+### GET /api/activity
+
+Returns the 20 most recent activity entries for the authenticated user, sorted by `createdAt` descending. Responses are cached per user for 60 seconds.
+
+**Authentication:** Required
+
+**Request Body:** None
+
+**Response `200` (cache miss):**
+
+```json
+{
+  "success": true,
+  "cached": false,
+  "data": [
+    {
+      "_id": "...",
+      "user": "...",
+      "type": "LESSON_COMPLETED",
+      "message": "Completed lesson: Introduction to Express",
+      "createdAt": "2026-03-11T08:00:00.000Z"
+    },
+    {
+      "_id": "...",
+      "user": "...",
+      "type": "RESUME_GENERATED",
+      "message": "Generated résumé",
+      "createdAt": "2026-03-10T14:30:00.000Z"
+    }
+  ]
+}
+```
+
+**Response `200` (cache hit):**
+
+Identical shape with `"cached": true`.
+
+**Error Responses:**
+
+| Status | Reason |
+|---|---|
+| `401` | Not authenticated |
+| `500` | Server error |
+
+---
+
+## 11. Notifications
+
+### GET /api/notifications
+
+Returns the latest notifications for the authenticated user, sorted by `createdAt` descending.
+
+**Authentication:** Required
+
+**Request Body:** None
+
+**Response `200`:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "...",
+      "user": "...",
+      "message": "You completed the course: Node.js Fundamentals",
+      "read": false,
+      "createdAt": "2026-03-11T09:00:00.000Z"
+    },
+    {
+      "_id": "...",
+      "user": "...",
+      "message": "Your résumé was generated successfully",
+      "read": true,
+      "createdAt": "2026-03-10T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status | Reason |
+|---|---|
+| `401` | Not authenticated |
+| `500` | Server error |
+
+---
+
+### PATCH /api/notifications/:id/read
+
+Marks a specific notification as read.
+
+**Authentication:** Required
+
+**URL Parameters:**
+
+| Parameter | Description |
+|---|---|
+| `id` | MongoDB ObjectId of the notification |
+
+**Request Body:** None
+
+**Response `200`:**
+
+```json
+{
+  "success": true,
+  "message": "Notification marked as read"
+}
+```
+
+**Error Responses:**
+
+| Status | Reason |
+|---|---|
+| `401` | Not authenticated |
+| `404` | Notification not found |
+| `500` | Server error |
+
+---
+
+## 12. Search
+
+### GET /api/search?q=query
+
+Searches across multiple content types and returns combined results.
+
+**Authentication:** Not required
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `q` | string | Search term (required) |
+
+**Response `200`:**
+
+```json
+{
+  "success": true,
+  "query": "node",
+  "results": {
+    "courses": [
+      {
+        "_id": "...",
+        "title": "Node.js Fundamentals",
+        "category": "Backend",
+        "level": "beginner",
+        "thumbnail": "https://..."
+      }
+    ],
+    "projectIdeas": [
+      {
+        "_id": "...",
+        "title": "REST API with Node.js",
+        "description": "Build a RESTful API using Node.js and Express."
+      }
+    ],
+    "skills": [
+      {
+        "_id": "...",
+        "name": "Node.js"
+      }
+    ]
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Reason |
+|---|---|
+| `400` | Missing or empty `q` parameter |
 | `500` | Server error |
