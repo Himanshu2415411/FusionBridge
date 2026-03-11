@@ -1,6 +1,7 @@
 const express = require("express")
 const { auth } = require("../middleware/auth")
 const User = require("../models/User")
+const { getDashboardOverview } = require("../controllers/dashboard.controller")
 
 const router = express.Router()
 
@@ -54,5 +55,10 @@ router.get("/", auth, async (req, res) => {
     })
   }
 })
+
+// @route   GET /api/dashboard/overview
+// @desc    Aggregated dashboard metrics for the authenticated user
+// @access  Private
+router.get("/overview", auth, getDashboardOverview)
 
 module.exports = router

@@ -1,5 +1,7 @@
 const User = require("../models/User")
 const Course = require("../models/Course")
+const eventBus = require("../utils/eventBus")
+const EVENT_TYPES = require("../utils/eventTypes")
 
 const findLessonInCourse = (course, lessonId) => {
   for (const section of course.curriculum || []) {
@@ -125,6 +127,12 @@ const markLessonComplete = async (req, res) => {
     }
 
     await user.save()
+
+    eventBus.emit(EVENT_TYPES.LESSON_COMPLETED, {
+      userId: req.user._id,
+      lessonId,
+      courseId,
+    })
 
     return res.json({
       success: true,

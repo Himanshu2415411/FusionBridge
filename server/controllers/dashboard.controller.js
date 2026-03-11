@@ -1,4 +1,8 @@
 const User = require("../models/User")
+const CareerProfile = require("../models/CareerProfile")
+const FreelanceProject = require("../models/FreelanceProject")
+const Activity = require("../models/Activity")
+const Notification = require("../models/Notification")
 const { getPaginationParams } = require("../utils/pagination")
 
 const getDashboard = async (req, res) => {
@@ -78,7 +82,59 @@ const getLeaderboard = async (req, res) => {
   }
 }
 
+const getDashboardOverview = async (req, res) => {
+  try {
+    const userId = req.user._id
+
+    const [user, profile, projects, recentActivities, unreadNotifications] =
+      await Promise.all([
+        User.findById(userId).select("xp currentStreak enrolledCourses"),
+        CareerProfile.findOne({ user: userId }).select("skills targetRole"),
+        FreelanceProject.find({ user: userId }).select("status"),
+        Activity.find({ user: userId }).sort({ createdAt: -1 }).limit(5),
+        Notification.countDocuments({ user: userId, read: false }),
+      ])
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" })
+    }
+
+    const completedLessons = (user.enrolledCourses || []).reduce(
+      (sum, ec) => sum + (ec.completedLessons?.length || 0),
+      0
+    )
+
+    const activeProjects = projects.filter(
+      (p) => p.status === "planning" || p.status === "in-progress"
+    ).length
+    const completedProjects = projects.filter(
+      (p) => p.status === "completed"
+    ).length
+
+    res.json({
+      success: true,
+      dashboard: {
+        xp: user.xp || 0,
+        streak: user.currentStreak || 0,
+        enrolledCourses: (user.enrolledCourses || []).length,
+        completedLessons,
+        targetRole: profile?.targetRole || null,
+        skills: profile?.skills || [],
+        activeProjects,
+        completedProjects,
+        unreadNotifications,
+        recentActivities,
+      },
+    })
+  } catch (error) {
+    console.error("Dashboard overview error:", error)
+    res.status(500).json({ success: false, message: "Server error" })
+  }
+}
+
 module.exports = {
   getDashboard,
   getLeaderboard,
+  getDashboardOverview,
 }
+

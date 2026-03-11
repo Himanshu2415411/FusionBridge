@@ -22,6 +22,7 @@ const notificationRoutes = require("./routes/notifications")
 const cron = require("node-cron")
 const { resetWeeklyXP } = require("./utils/weeklyReset")
 const growRoutes = require("./routes/grow")
+const registerEventListeners = require("./utils/registerEventListeners")
 
 // DB connection
 const connectDB = require("./config/database")
@@ -32,6 +33,8 @@ const app = express()
    DATABASE
    =========================== */
 connectDB()
+registerEventListeners()
+console.log("Event listeners initialized")
 
 /* ===========================
    SECURITY & CORE MIDDLEWARE
@@ -90,6 +93,7 @@ app.use("/api/lessons", require("./routes/lessons"))
 app.use("/api/certificates", certificateRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/grow", growRoutes)
+app.use("/api/activity", require("./routes/activity"))
 
 
 //Auto Run Weekly Reset
