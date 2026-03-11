@@ -10,6 +10,10 @@ FusionBridge uses **MongoDB** via **Mongoose**. All collections live in a single
 2. [Course](#2-course)
 3. [QuizAttempt](#3-quizattempt)
 4. [Certificate](#4-certificate)
+5. [Activity](#5-activity)
+6. [Notification](#6-notification)
+7. [FreelanceProject](#7-freelanceproject)
+8. [Contract](#8-contract)
 
 ---
 
@@ -289,6 +293,108 @@ Created when a student completes all lessons in a course and their `certificateU
 
 ---
 
+---
+
+## 5. Activity
+
+**Collection:** `activities`
+**Model file:** `server/models/Activity.js`
+
+Records a log of significant user actions across the platform. Written by event listeners (e.g., on `LESSON_COMPLETED`, `RESUME_GENERATED`) and surfaced via the activity feed API.
+
+### Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `user` | ObjectId → User | — | Required. The user who performed the action. |
+| `type` | String | — | Required. Event type constant (e.g., `LESSON_COMPLETED`, `RESUME_GENERATED`). |
+| `message` | String | — | Required. Human-readable description of the activity. |
+| `metadata` | Object | `{}` | Optional key-value payload carrying contextual data (e.g., course ID, lesson title). |
+| `createdAt` | Date | `Date.now` | Timestamp of the activity. |
+
+### Indexes
+
+| Fields | Purpose |
+|---|---|
+| `user: 1, createdAt: -1` | Fast retrieval of recent activity per user |
+
+---
+
+## 6. Notification
+
+**Collection:** `notifications`
+**Model file:** `server/models/Notification.js`
+
+Stores in-app notifications delivered to users. Created automatically by event listeners when platform events occur (course completion, résumé generation, project creation).
+
+### Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `user` | ObjectId → User | — | Required. The recipient user. |
+| `type` | String | — | Required. Notification category (mirrors event type constants). |
+| `message` | String | — | Required. Notification body shown in the UI. |
+| `read` | Boolean | `false` | `true` once the user has viewed the notification. |
+| `createdAt` | Date | `Date.now` | Timestamp of creation. |
+
+### Indexes
+
+| Fields | Purpose |
+|---|---|
+| `user: 1, createdAt: -1` | Sorted notification listing per user |
+| `user: 1, read: 1` | Fast unread notification count queries |
+
+---
+
+## 7. FreelanceProject
+
+**Collection:** `freelanceprojects`
+**Model file:** `server/models/FreelanceProject.js`
+
+Represents a freelance project created and managed by a user inside the Earn module. Tracks project lifecycle from planning through to completion.
+
+### Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `user` | ObjectId → User | — | Required. The user who owns the project. |
+| `clientName` | String | — | Required. Name of the client or organization. |
+| `title` | String | — | Required. Short project title. |
+| `description` | String | — | Required. Full project description. |
+| `techStack` | String[] | `[]` | Technologies used in the project. |
+| `tasks` | Array | `[]` | Embedded task list: `{ title, completed (Boolean) }`. |
+| `status` | String | `"planning"` | Project lifecycle stage: `"planning"` / `"in-progress"` / `"completed"` / `"on-hold"`. |
+| `estimatedBudget` | Number | — | Estimated project budget in USD. |
+| `estimatedDuration` | String | — | Human-readable duration estimate (e.g., `"2 weeks"`). |
+| `createdAt` | Date | `Date.now` | Timestamp of project creation. |
+
+### Indexes
+
+| Fields | Purpose |
+|---|---|
+| `user: 1` | Fast project retrieval for user dashboards |
+
+---
+
+## 8. Contract
+
+**Collection:** `contracts`
+**Model file:** `server/models/Contract.js`
+
+Stores AI-generated or manually created freelance contracts associated with a `FreelanceProject`. Each contract captures the agreed terms as a text document alongside project and client metadata.
+
+### Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `user` | ObjectId → User | — | Required. The user who generated the contract. |
+| `project` | ObjectId → FreelanceProject | — | Required. The associated freelance project. |
+| `clientName` | String | — | Required. Name of the client the contract is addressed to. |
+| `contractText` | String | — | Required. Full contract body text. |
+| `createdAt` | Date | `Date.now` | Timestamp of contract creation. |
+
+---
+
 ## Relationships Overview
 
 ```
@@ -299,6 +405,11 @@ QuizAttempt ───────────────── course ───
 QuizAttempt ───────────────── lesson (ObjectId, no ref)
 Certificate ───────────────── user ──────────────────► User
 Certificate ───────────────── course ────────────────► Course
+Activity ──────────────────── user ──────────────────► User
+Notification ──────────────── user ──────────────────► User
+FreelanceProject ─────────── user ──────────────────► User
+Contract ──────────────────── user ──────────────────► User
+Contract ──────────────────── project ───────────────► FreelanceProject
 ```
 
 All cross-collection relationships use MongoDB `ObjectId` references. Mongoose `populate()` is used selectively — only the fields needed for a response are projected to keep payloads lean.
