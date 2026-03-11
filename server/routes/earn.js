@@ -513,4 +513,34 @@ router.get("/skills", async (req, res) => {
   }
 })
 
+/* ===========================
+   FREELANCE WORKSPACE ROUTES
+   =========================== */
+const {
+  createProject,
+  getProjects,
+  updateProjectStatus,
+  generateProjectProposal,
+} = require("../controllers/earn.controller")
+
+// @route   POST /api/earn/workspace/projects
+// @desc    Create a new freelance workspace project
+// @access  Private
+router.post("/workspace/projects", auth, createProject)
+
+// @route   GET /api/earn/workspace/projects
+// @desc    Get all workspace projects for the authenticated user
+// @access  Private
+router.get("/workspace/projects", auth, getProjects)
+
+// @route   PUT /api/earn/workspace/projects/:projectId
+// @desc    Update the status of a workspace project
+// @access  Private
+router.put("/workspace/projects/:projectId", auth, updateProjectStatus)
+
+// @route   POST /api/earn/workspace/projects/:projectId/proposal
+// @desc    Generate a proposal for a workspace project
+// @access  Private
+router.post("/workspace/projects/:projectId/proposal", auth, generateProjectProposal)
+
 module.exports = router
