@@ -186,3 +186,150 @@ http://localhost:5000/api
 | `/api/analytics` | `routes/analytics.js` |
 | `/api/certificates` | `routes/certificates.js` |
 | `/api/users` | `routes/users.js` |
+| `/api/dashboard` | `routes/dashboard.js` |
+| `/api/activity` | `routes/activity.js` |
+| `/api/search` | `routes/search.js` |
+| `/api/notifications` | `routes/notifications.js` |
+| `/api/earn` | `routes/earn.js` |
+| `/api/grow` | `routes/grow.js` |
+
+---
+
+## 8. Event-Driven Architecture
+
+FusionBridge uses an internal **event bus** to decouple major platform actions from their side effects. Controllers and services emit named events after completing a primary operation; independent listeners react to those events asynchronously, keeping the originating code path lean.
+
+**Implementation files:**
+- `utils/eventBus.js` — exports a singleton `EventEmitter` instance shared across the application
+- `utils/eventTypes.js` — exports string constants for every event name, preventing typos
+- `utils/registerEventListeners.js` — registers all listeners on server startup
+
+### Event Catalogue
+
+| Event constant | Trigger |
+|---|---|
+| `LESSON_COMPLETED` | A student marks a lesson as complete |
+| `COURSE_COMPLETED` | All lessons in a course are finished |
+| `RESUME_GENERATED` | A user generates or updates their résumé |
+| `PROJECT_IDEA_CREATED` | A new project idea is saved |
+| `FREELANCE_PROJECT_CREATED` | A freelance project record is created |
+
+### Side Effects Handled by Listeners
+
+- **Activity logging** — writes an `Activity` document capturing what happened and when
+- **Notification creation** — creates a `Notification` document delivered to the user's feed
+- **Analytics updates** — increments counters or refreshes aggregated metrics
+
+### Flow Diagram
+
+```
+Controller / Service
+        │
+        │  eventBus.emit(EVENT_TYPE, payload)
+        ▼
+    EventBus (utils/eventBus.js)
+        │
+        ├──▶ Activity Listener   → Activity.create(...)
+        ├──▶ Notification Listener → Notification.create(...)
+        └──▶ Analytics Listener  → update counters / aggregates
+```
+
+This architecture keeps controllers lightweight — they emit an event and return a response immediately, without blocking on secondary operations.
+
+---
+
+## 9. Platform Infrastructure
+
+### Activity Feed
+
+All significant user actions are persisted as `Activity` documents. The feed is queryable per user and powers both the dashboard activity timeline and analytics reporting.
+
+**Model:** `Activity`
+**Route:** `GET /api/activity`
+
+### Notification System
+
+Notifications are created automatically by event listeners and surfaced to users via the notifications API. Users receive alerts for events including:
+
+- Course completion
+- Résumé generation
+- Freelance project creation
+
+**Model:** `Notification`
+**Routes:** `routes/notifications.js`
+
+### Dashboard Aggregation API
+
+The dashboard is powered by a single aggregation endpoint that collects data from multiple domains in parallel using `Promise.all`:
+
+```
+GET /api/dashboard/overview
+```
+
+Domains aggregated in a single request:
+
+| Domain | Data returned |
+|---|---|
+| User | XP, streak, enrolled courses |
+| CareerProfile | Target role, skills |
+| FreelanceProject | Active and completed project counts |
+| Activity | 5 most recent activity entries |
+| Notification | Unread notification count |
+
+Responses are cached with `node-cache` (TTL 60 s) using the key `dashboard_<userId>` to avoid redundant database round-trips on repeated loads.
+
+### Global Search System
+
+A unified search endpoint allows users to query across multiple content types in a single request:
+
+```
+GET /api/search?q=<query>
+```
+
+Searchable domains:
+
+- **Courses** — title, description, tags (MongoDB text index)
+- **Project ideas** — title, description
+- **Skills** — skill name
+
+**Route:** `routes/search.js`
+**Controller:** `controllers/search.controller.js`
+
+---
+
+## 10. Performance Hardening
+
+### Rate Limiting
+
+`express-rate-limit` is configured on the Express application to protect all API endpoints from abusive or accidental high-frequency requests. Requests exceeding the configured threshold receive a `429 Too Many Requests` response.
+
+### Response Caching
+
+`node-cache` provides an in-process memory cache for expensive aggregation responses. Cache entries carry a default TTL of **60 seconds** with a cleanup sweep every **120 seconds**.
+
+Cached endpoints and their cache keys:
+
+| Endpoint | Cache key pattern |
+|---|---|
+| `GET /api/dashboard/overview` | `dashboard_<userId>` |
+| `GET /api/activity` | `activity_<userId>` |
+
+Cached responses include a `"cached": true` flag in the JSON body so clients and developers can distinguish cache hits from live database reads.
+
+### Database Indexing
+
+MongoDB compound and single-field indexes are declared directly on Mongoose schemas to optimise the application's most frequent query patterns:
+
+| Model | Index | Query optimised |
+|---|---|---|
+| `Activity` | `{ user: 1, createdAt: -1 }` | Recent activity feed per user |
+| `Notification` | `{ user: 1, createdAt: -1 }` | Sorted notification listing |
+| `Notification` | `{ user: 1, read: 1 }` | Unread notification count |
+| `FreelanceProject` | `{ user: 1 }` | Dashboard project retrieval |
+| `QuizAttempt` | `{ user: 1, lesson: 1 }` | Per-user attempt history by lesson |
+| `QuizAttempt` | `{ lesson: 1 }` | All attempts for a given lesson |
+| `Course` | `{ instructor: 1 }` | Instructor course listing |
+| `Resume` | `{ user: 1 }` | Fast résumé retrieval |
+| `CareerProfile` | `{ user: 1 }` | Fast career profile lookup |
+
+Mongoose ensures all declared indexes exist in MongoDB at server startup via `autoIndex` (enabled by default in development).
