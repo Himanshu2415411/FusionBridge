@@ -2,9 +2,9 @@ const express = require("express")
 const mongoose = require("mongoose")
 const cors = require("cors")
 const helmet = require("helmet")
-const rateLimit = require("express-rate-limit")
 const compression = require("compression")
 const morgan = require("morgan")
+const apiLimiter = require("./middleware/rateLimit")
 require("dotenv").config()
 
 
@@ -68,15 +68,7 @@ if (process.env.NODE_ENV === "development") {
 /* ===========================
    RATE LIMITING
    =========================== */
-const limiter = rateLimit({
-  windowMs: Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: Number.parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: {
-    success: false,
-    message: "Too many requests, please try again later.",
-  },
-})
-app.use("/api/", limiter)
+app.use("/api/", apiLimiter)
 
 /* ===========================
    ROUTES
@@ -94,6 +86,7 @@ app.use("/api/certificates", certificateRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/grow", growRoutes)
 app.use("/api/activity", require("./routes/activity"))
+app.use("/api/search", require("./routes/search"))
 
 
 //Auto Run Weekly Reset
