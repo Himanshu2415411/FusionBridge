@@ -1,13 +1,33 @@
 "use client"
 
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { PlayCircle, BookOpen } from "lucide-react"
+import { PlayCircle, BookOpen, Loader2 } from "lucide-react"
 
 export function CourseDetail({ course }) {
+  const router = useRouter()
+  const [isEnrolling, setIsEnrolling] = useState(false)
+
   if (!course) return null
+
+  const handleEnroll = async () => {
+    try {
+      setIsEnrolling(true)
+      await fetch(`/api/courses/${course.id || course._id}/enroll`, {
+        method: 'POST',
+      })
+      
+      const firstLessonId = course.lessons?.[0]?.id || course.lessons?.[0]?._id || 'start'
+      router.push(`/unibridge/learn/${course.id || course._id}/${firstLessonId}`)
+    } catch (error) {
+      console.error("Failed to enroll:", error)
+      setIsEnrolling(false)
+    }
+  }
 
   return (
     <motion.div
@@ -27,8 +47,13 @@ export function CourseDetail({ course }) {
           <CardDescription className="text-base mt-2">{course.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button className="bg-[#F97A00] hover:bg-[#F97A00]/90 text-white px-8 py-6 text-lg rounded-xl shadow-md">
-            Enroll Now
+          <Button 
+            onClick={handleEnroll}
+            disabled={isEnrolling}
+            className="bg-[#F97A00] hover:bg-[#F97A00]/90 text-white px-8 py-6 text-lg rounded-xl shadow-md"
+          >
+            {isEnrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
+            {isEnrolling ? "Enrolling..." : "Enroll Now"}
           </Button>
         </CardContent>
       </Card>

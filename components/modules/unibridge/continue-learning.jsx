@@ -84,7 +84,7 @@ export default function ContinueLearning({ courses = [] }) {
                   className="h-1.5 bg-[#386641]/10 [&>div]:bg-[#386641]"
                 />
 
-                <Link href={`/unibridge/courses/${course._id || course.id}`}>
+                <Link href={`/unibridge/learn/${course._id || course.id}/${course.lastLessonId || 'start'}`}>
                   <Button
                     size="sm"
                     className="bg-[#F97A00] hover:bg-[#e06900] text-white text-xs mt-1"
