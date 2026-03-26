@@ -47,10 +47,6 @@ const certificateSchema = new mongoose.Schema({
   },
 })
 
-// Indexes for efficient queries
-certificateSchema.index({ certificateId: 1 })
-certificateSchema.index({ verificationHash: 1 })
-
 const Certificate = mongoose.model("Certificate", certificateSchema)
 
 module.exports = Certificate

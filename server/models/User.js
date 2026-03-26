@@ -305,7 +305,6 @@ userSchema.virtual("progressToNextLevel").get(function () {
 })
 
 // Index for better performance
-userSchema.index({ email: 1 })
 userSchema.index({ level: -1, xp: -1 })
 
 // Pre-save middleware to hash password

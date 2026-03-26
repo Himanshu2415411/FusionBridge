@@ -55,7 +55,6 @@ quizAttemptSchema.index({ user: 1 })
 quizAttemptSchema.index({ lesson: 1 })
 quizAttemptSchema.index({ course: 1 })
 quizAttemptSchema.index({ user: 1, lesson: 1 })
-quizAttemptSchema.index({ lesson: 1 })
 
 const QuizAttempt = mongoose.model("QuizAttempt", quizAttemptSchema)
 
