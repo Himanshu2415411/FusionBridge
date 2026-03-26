@@ -42,7 +42,7 @@ export default function ContinueLearning({ courses = [] }) {
                 <p className="text-sm font-medium text-foreground">No courses in progress</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Enroll in a course to start learning</p>
               </div>
-              <Link href="/unibridge">
+              <Link href="/unibridge/courses">
                 <Button
                   size="sm"
                   className="bg-[#F97A00] hover:bg-[#e06900] text-white text-xs mt-1"
@@ -84,7 +84,7 @@ export default function ContinueLearning({ courses = [] }) {
                   className="h-1.5 bg-[#386641]/10 [&>div]:bg-[#386641]"
                 />
 
-                <Link href={`/unibridge/${course._id || course.id}`}>
+                <Link href={`/unibridge/courses/${course._id || course.id}`}>
                   <Button
                     size="sm"
                     className="bg-[#F97A00] hover:bg-[#e06900] text-white text-xs mt-1"
