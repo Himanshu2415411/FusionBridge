@@ -73,10 +73,12 @@ export default function LearnPage() {
         completedLessons: [...(prev?.completedLessons || []), lessonId]
       }))
       
-      // Navigate to next lesson if available
+      // Navigate to next lesson if available, else redirect to completion
       if (currentLessonIndex < course.lessons.length - 1) {
         const nextLesson = course.lessons[currentLessonIndex + 1]
         router.push(`/unibridge/learn/${courseId}/${nextLesson.id || nextLesson._id}`)
+      } else {
+        router.push(`/unibridge/completed/${courseId}`)
       }
     } catch (error) {
       console.error("Failed to mark lesson complete:", error)

@@ -15,7 +15,7 @@ import { PlayCircle, BookOpen } from "lucide-react"
 import Link from "next/link"
 
 export default function ContinueLearning({ courses = [] }) {
-  const activeCourses = courses.slice(0, 3)
+  const activeCourses = courses.filter(c => (c.progress ?? 0) < 100).slice(0, 3)
 
   return (
     <motion.div
