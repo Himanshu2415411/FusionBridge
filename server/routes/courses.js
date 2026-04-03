@@ -9,6 +9,8 @@ const { getPaginationParams } = require("../utils/pagination")
 const { createCourseValidation } = require("../middleware/validators/course.validator")
 const { submitQuizValidationWithParams } = require("../middleware/validators/quiz.validator")
 const validateRequest = require("../middleware/validateRequest")
+const upload = require("../middleware/uploadCloudinary")
+const courseController = require("../controllers/course.controller")
 
 const router = express.Router()
 
@@ -1072,5 +1074,19 @@ router.get("/:courseId/lessons/:lessonId/quiz/summary", auth, async (req, res) =
     })
   }
 })
+
+// === New Routes as Per Instructions ===
+router.post(
+  "/:id/lessons",
+  auth,
+  upload.single("video"),
+  courseController.addLesson
+)
+
+router.patch(
+  "/:id/publish",
+  auth,
+  courseController.publishCourse
+)
 
 module.exports = router

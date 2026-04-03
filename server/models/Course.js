@@ -191,6 +191,12 @@ const courseSchema = new mongoose.Schema(
     requirements: [{ type: String, trim: true }],
     whatYouWillLearn: [{ type: String, trim: true }],
     curriculum: [sectionSchema],
+    lessons: [{
+      title: String,
+      videoUrl: String,
+      duration: String,
+      isPreview: { type: Boolean, default: false }
+    }],
     studentsEnrolled: {
       type: Number,
       default: 0,
