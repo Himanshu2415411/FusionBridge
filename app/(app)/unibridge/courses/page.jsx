@@ -11,7 +11,7 @@ export default function CourseExplorerPage() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('/api/courses')
+        const response = await fetch('http://localhost:5000/api/courses')
         const data = await response.json()
         setCourses(data.courses || data || [])
       } catch (error) {

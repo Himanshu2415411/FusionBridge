@@ -66,3 +66,23 @@ exports.publishCourse = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.enrollCourse = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const courseId = req.params.id;
+
+    const course = await courseService.enrollUser(courseId, userId);
+
+    res.status(200).json({
+      success: true,
+      enrolled: true,
+      data: course,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

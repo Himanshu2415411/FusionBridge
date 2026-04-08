@@ -25,7 +25,7 @@ export function CourseCard({ course }) {
           <CardDescription className="line-clamp-2">{course.description}</CardDescription>
         </CardHeader>
         <CardContent className="mt-auto pt-4">
-          <Link href={`/unibridge/courses/${course.id || course._id || '#'}`} className="block">
+          <Link href={`/unibridge/courses/${course._id|| course._id || '#'}`} className="block">
             <Button className="w-full bg-[#F97A00] hover:bg-[#F97A00]/90 text-white font-medium rounded-xl">
               View Course
             </Button>

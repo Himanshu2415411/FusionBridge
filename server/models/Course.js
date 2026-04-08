@@ -201,6 +201,12 @@ const courseSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    studentsEnrolledList: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     averageRating: {
       type: Number,
       default: 0,

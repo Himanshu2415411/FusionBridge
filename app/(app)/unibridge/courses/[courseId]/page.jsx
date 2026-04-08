@@ -17,7 +17,7 @@ export default function CourseDetailPage() {
 
     const fetchCourseDetail = async () => {
       try {
-        const response = await fetch(`/api/courses/${courseId}`)
+        const response = await fetch(`http://localhost:5000/api/courses/${courseId}`)
         const data = await response.json()
         setCourse(data.course || data)
       } catch (error) {

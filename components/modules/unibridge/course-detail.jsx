@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -11,20 +11,55 @@ import { PlayCircle, BookOpen, Loader2 } from "lucide-react"
 export function CourseDetail({ course }) {
   const router = useRouter()
   const [isEnrolling, setIsEnrolling] = useState(false)
+  const [isEnrolled, setIsEnrolled] = useState(false)
+
+  useEffect(() => {
+    setIsEnrolled(course?.isEnrolled || false)
+  }, [course])
 
   if (!course) return null
 
   const handleEnroll = async () => {
     try {
       setIsEnrolling(true)
-      await fetch(`/api/courses/${course.id || course._id}/enroll`, {
-        method: 'POST',
-      })
-      
-      const firstLessonId = course.lessons?.[0]?.id || course.lessons?.[0]?._id || 'start'
-      router.push(`/unibridge/learn/${course.id || course._id}/${firstLessonId}`)
+
+      const token = localStorage.getItem("token")
+      console.log("Token:", token)
+
+      const res = await fetch(
+        `http://localhost:5000/api/courses/${course._id}/enroll`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      if (res.status === 401) {
+        alert("Please login again")
+        return
+      }
+
+      const data = await res.json()
+
+      if (!data.success) {
+        throw new Error("Enrollment failed")
+      }
+
+      const firstLesson = course.lessons?.[0]
+
+      if (!firstLesson) {
+        alert("No lessons available")
+        return
+      }
+
+      setIsEnrolled(true)
+      router.push(`/unibridge/learn/${course._id}/${firstLesson._id}`)
     } catch (error) {
-      console.error("Failed to enroll:", error)
+      console.error(error)
+    } finally {
       setIsEnrolling(false)
     }
   }
@@ -49,11 +84,11 @@ export function CourseDetail({ course }) {
         <CardContent>
           <Button 
             onClick={handleEnroll}
-            disabled={isEnrolling}
+            disabled={isEnrolling || isEnrolled}
             className="bg-[#F97A00] hover:bg-[#F97A00]/90 text-white px-8 py-6 text-lg rounded-xl shadow-md"
           >
             {isEnrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-            {isEnrolling ? "Enrolling..." : "Enroll Now"}
+            {isEnrolling ? "Enrolling..." : isEnrolled ? "Enrolled" : "Enroll Now"}
           </Button>
         </CardContent>
       </Card>
@@ -66,8 +101,17 @@ export function CourseDetail({ course }) {
 
         <div className="grid gap-3">
           {course.lessons && course.lessons.length > 0 ? (
-            course.lessons.map((lesson, index) => (
-              <Card key={lesson.id || index} className="rounded-xl border shadow-sm bg-white hover:bg-gray-50 transition">
+            course.lessons.map((lesson) => (
+              <Card
+                key={lesson._id}
+                className={`rounded-xl border shadow-sm bg-white transition ${
+                  isEnrolled ? "cursor-pointer hover:bg-gray-50" : "opacity-60 cursor-not-allowed"
+                }`}
+                onClick={() => {
+                  if (!isEnrolled) return
+                  router.push(`/unibridge/learn/${course._id}/${lesson._id}`)
+                }}
+              >
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="h-10 w-10 rounded-full bg-[#FFF4A4] flex items-center justify-center text-[#F97A00]">
@@ -78,6 +122,7 @@ export function CourseDetail({ course }) {
                       <p className="text-sm text-gray-500">{lesson.duration || "10 mins"}</p>
                     </div>
                   </div>
+                  {!isEnrolled ? <Badge variant="secondary">Locked</Badge> : null}
                 </CardContent>
               </Card>
             ))

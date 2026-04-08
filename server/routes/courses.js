@@ -254,6 +254,12 @@ router.get("/:id", optionalAuth, async (req, res) => {
 })
 
 /* ===========================
+   POST /api/courses/:id/enroll
+   User Enrollment
+   =========================== */
+router.post("/:id/enroll", auth, courseController.enrollCourse)
+
+/* ===========================
    GET /api/courses/:id/learn
    Learning Session API
    =========================== */
@@ -564,54 +570,6 @@ router.get("/:id/timeline", auth, async (req, res) => {
 })
 
 
-
-/* ===========================
-   POST /api/courses/:id/enroll
-   =========================== */
-router.post("/:id/enroll", auth, async (req, res) => {
-  try {
-    const course = await Course.findById(req.params.id)
-    if (!course) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      })
-    }
-
-    const user = await User.findById(req.user._id)
-
-    const alreadyEnrolled = user.enrolledCourses.some(
-      ec => ec.course.toString() === req.params.id
-    )
-
-    if (alreadyEnrolled) {
-      return res.status(400).json({
-        success: false,
-        message: "User already enrolled in this course",
-      })
-    }
-
-    user.enrolledCourses.push({
-      course: course._id,
-      completedLessons: [],
-      lastAccessedLesson: null,
-    })
-
-    course.studentsEnrolled += 1
-
-    await user.save()
-    await course.save()
-
-    res.json({
-      success: true,
-      message: "Course enrolled successfully",
-      courseId: course._id,
-    })
-  } catch (error) {
-    console.error("Enroll error:", error)
-    res.status(500).json({ success: false, message: "Server error" })
-  }
-})
 
 /* ===========================
    PUT /api/courses/:id/progress
@@ -1076,6 +1034,12 @@ router.get("/:courseId/lessons/:lessonId/quiz/summary", auth, async (req, res) =
 })
 
 // === New Routes as Per Instructions ===
+router.post(
+  "/:id/enroll",
+  auth,
+  courseController.enrollCourse
+)
+
 router.post(
   "/:id/lessons",
   auth,

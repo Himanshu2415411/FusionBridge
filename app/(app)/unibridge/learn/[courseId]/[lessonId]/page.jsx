@@ -6,56 +6,87 @@ import { motion } from "framer-motion"
 import { LessonPlayer } from "@/components/modules/unibridge/lesson-player"
 import { LessonSidebar } from "@/components/modules/unibridge/lesson-sidebar"
 
-export default function LearnPage() {
-  const { courseId, lessonId } = useParams()
+export default function LearnPage({ params }) {
+  const routeParams = useParams()
+  const paramsFromRoute = params || routeParams || {}
+  const { courseId, lessonId } = paramsFromRoute
+  const normalizedCourseId = Array.isArray(courseId) ? courseId[0] : courseId
+  const normalizedLessonId = Array.isArray(lessonId) ? lessonId[0] : lessonId
   const router = useRouter()
   const [course, setCourse] = useState(null)
   const [progress, setProgress] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    if (!courseId) return
+    if (!normalizedCourseId) return
 
     const fetchData = async () => {
       try {
-        const [courseRes, progressRes] = await Promise.all([
-          fetch(`/api/courses/${courseId}`),
-          fetch(`/api/progress/${courseId}`)
-        ])
+        setError("")
+        const res = await fetch(`http://localhost:5000/api/courses/${normalizedCourseId}`)
+        const data = await res.json()
 
-        const courseData = await courseRes.json()
-        const progressDataRes = await progressRes.json()
-
-        const actualCourse = courseData.course || courseData
-        setCourse(actualCourse)
-        setProgress(progressDataRes.progress || progressDataRes || { completedLessons: [] })
-
-        // If 'start' lessonId is provided, redirect to the first actual lesson
-        if (lessonId === 'start' && actualCourse?.lessons?.length > 0) {
-          router.replace(`/unibridge/learn/${courseId}/${actualCourse.lessons[0].id || actualCourse.lessons[0]._id}`)
+        if (!data?.data) {
+          setError("Course not found")
+          return
         }
+
+        setCourse(data.data)
+
+        if (normalizedLessonId === "start" && data.data?.lessons?.length > 0) {
+          router.replace(`/unibridge/learn/${normalizedCourseId}/${data.data.lessons[0]._id}`)
+          return
+        }
+
+        const currentLesson = data.data.lessons?.find((l) => l._id === normalizedLessonId)
+        if (!currentLesson) {
+          setError("Lesson not found")
+          return
+        }
+
+        const progressRes = await fetch(`/api/progress/${normalizedCourseId}`)
+        const progressDataRes = await progressRes.json()
+        setProgress(progressDataRes.progress || progressDataRes || { completedLessons: [] })
       } catch (error) {
         console.error("Failed to fetch learn data:", error)
+        setError("Failed to load lesson")
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [courseId, lessonId, router])
+  }, [normalizedCourseId, normalizedLessonId, router])
 
   if (loading) {
     return <div className="text-center py-20 text-[#386641] min-h-screen bg-[#FFF4A4]">Loading lesson...</div>
   }
 
-  if (!course || !course.lessons) {
+  if (!course) {
+    return <div>Loading...</div>
+  }
+
+  if (!course.isEnrolled) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-xl font-semibold text-[#386641]">Please enroll to access this course</h2>
+      </div>
+    )
+  }
+
+  if (error) {
+    return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">{error}</div>
+  }
+
+  if (!course.lessons) {
     return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">Course or lessons not found.</div>
   }
 
-  const currentLessonIndex = course.lessons.findIndex(l => (l.id || l._id) === lessonId)
-  const lesson = course.lessons[currentLessonIndex]
+  const lesson = course.lessons.find((l) => l._id === normalizedLessonId)
+  const currentLessonIndex = course.lessons.findIndex((l) => l._id === normalizedLessonId)
 
-  if (!lesson && lessonId !== 'start') {
+  if (!lesson && normalizedLessonId !== "start") {
     return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">Lesson not found.</div>
   }
 
@@ -64,21 +95,21 @@ export default function LearnPage() {
       await fetch('/api/progress/lesson-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId, lessonId })
+        body: JSON.stringify({ courseId: normalizedCourseId, lessonId: normalizedLessonId })
       })
       
       // Update local progress state
       setProgress(prev => ({
         ...prev,
-        completedLessons: [...(prev?.completedLessons || []), lessonId]
+        completedLessons: [...(prev?.completedLessons || []), normalizedLessonId]
       }))
       
       // Navigate to next lesson if available, else redirect to completion
       if (currentLessonIndex < course.lessons.length - 1) {
         const nextLesson = course.lessons[currentLessonIndex + 1]
-        router.push(`/unibridge/learn/${courseId}/${nextLesson.id || nextLesson._id}`)
+        router.push(`/unibridge/learn/${normalizedCourseId}/${nextLesson._id}`)
       } else {
-        router.push(`/unibridge/completed/${courseId}`)
+        router.push(`/unibridge/completed/${normalizedCourseId}`)
       }
     } catch (error) {
       console.error("Failed to mark lesson complete:", error)
@@ -88,7 +119,7 @@ export default function LearnPage() {
   const handlePrevious = () => {
     if (currentLessonIndex > 0) {
       const prevLesson = course.lessons[currentLessonIndex - 1]
-      router.push(`/unibridge/learn/${courseId}/${prevLesson.id || prevLesson._id}`)
+      router.push(`/unibridge/learn/${normalizedCourseId}/${prevLesson._id}`)
     }
   }
 
@@ -117,7 +148,7 @@ export default function LearnPage() {
         <div className="w-full lg:w-[30%]">
           <LessonSidebar 
             course={course} 
-            currentLessonId={lessonId} 
+            currentLessonId={normalizedLessonId} 
             progress={progress}
             progressPercent={progressPercent}
           />

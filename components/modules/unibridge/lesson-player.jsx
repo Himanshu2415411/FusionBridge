@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, ArrowRight, PlayCircle } from "lucide-react"
+import { ArrowLeft, ArrowRight } from "lucide-react"
 import api from "@/lib/api"
 
 export function LessonPlayer({ lesson, course, onComplete, onPrevious, isFirst, isLast }) {
@@ -72,7 +72,9 @@ export function LessonPlayer({ lesson, course, onComplete, onPrevious, isFirst, 
     }
   }
 
-  if (!lesson) return null
+  if (!lesson || !lesson.videoUrl) {
+    return <div>No video available</div>
+  }
 
   return (
     <motion.div
@@ -82,25 +84,18 @@ export function LessonPlayer({ lesson, course, onComplete, onPrevious, isFirst, 
     >
       <Card className="rounded-xl border shadow-sm hover:shadow-md transition-shadow bg-white overflow-hidden">
         <div className="aspect-video w-full bg-black/5 relative flex items-center justify-center">
-          {lesson.videoUrl ? (
-            <video
-              ref={videoRef}
-              key={lesson.videoUrl}
-              controls
-              preload="metadata"
-              className="w-full h-full object-cover"
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleVideoEnded}
+          <video
+            ref={videoRef}
+            key={lesson.videoUrl}
+            controls
+            preload="metadata"
+            className="w-full h-full object-cover"
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={handleVideoEnded}
           >
-              <source src={lesson.videoUrl} type="video/mp4" />
-              Your browser does not support the video tag.
+            <source src={lesson.videoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
           </video>
-          ) : (
-            <div className="flex flex-col items-center justify-center text-[#386641]/50 space-y-4">
-              <PlayCircle className="w-16 h-16 opacity-50" />
-              <p>Video not available for this lesson</p>
-            </div>
-          )}
         </div>
         
         <CardContent className="p-6 space-y-6">
