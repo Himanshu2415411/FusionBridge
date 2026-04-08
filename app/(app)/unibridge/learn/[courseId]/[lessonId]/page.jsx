@@ -14,87 +14,98 @@ export default function LearnPage({ params }) {
   const normalizedLessonId = Array.isArray(lessonId) ? lessonId[0] : lessonId
   const router = useRouter()
   const [course, setCourse] = useState(null)
+  const [lesson, setLesson] = useState(null)
   const [progress, setProgress] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (!normalizedCourseId) return
+    if (!normalizedCourseId || !normalizedLessonId) return
 
-    const fetchData = async () => {
+    const fetchCourse = async () => {
       try {
-        setError("")
-        const res = await fetch(`http://localhost:5000/api/courses/${normalizedCourseId}`)
+        const token = localStorage.getItem("token")
+
+        const res = await fetch(
+          `http://localhost:5000/api/courses/${normalizedCourseId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        )
+
         const data = await res.json()
 
-        if (!data?.data) {
-          setError("Course not found")
-          return
+        console.log("COURSE DATA:", data)
+
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to load course")
         }
 
-        setCourse(data.data)
+        const courseData = data.data || data.course || data
 
-        if (normalizedLessonId === "start" && data.data?.lessons?.length > 0) {
-          router.replace(`/unibridge/learn/${normalizedCourseId}/${data.data.lessons[0]._id}`)
-          return
+        if (!courseData || !courseData.lessons) {
+          throw new Error("Invalid course data: lessons not found")
         }
 
-        const currentLesson = data.data.lessons?.find((l) => l._id === normalizedLessonId)
+        setCourse(courseData)
+
+        // LESSON MATCHING - Find lesson by _id
+        const currentLesson = courseData.lessons.find(
+          (l) => l._id === normalizedLessonId
+        )
+
         if (!currentLesson) {
-          setError("Lesson not found")
-          return
+          throw new Error("Lesson not found")
         }
 
-        const progressRes = await fetch(`/api/progress/${normalizedCourseId}`)
+        setLesson(currentLesson)
+
+        const progressRes = await fetch(
+          `http://localhost:5000/api/progress/${normalizedCourseId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        )
         const progressDataRes = await progressRes.json()
         setProgress(progressDataRes.progress || progressDataRes || { completedLessons: [] })
-      } catch (error) {
-        console.error("Failed to fetch learn data:", error)
-        setError("Failed to load lesson")
+      } catch (err) {
+        console.error(err)
+        setError(err.message)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
-  }, [normalizedCourseId, normalizedLessonId, router])
+    fetchCourse()
+  }, [normalizedCourseId, normalizedLessonId])
 
   if (loading) {
     return <div className="text-center py-20 text-[#386641] min-h-screen bg-[#FFF4A4]">Loading lesson...</div>
-  }
-
-  if (!course) {
-    return <div>Loading...</div>
-  }
-
-  if (!course.isEnrolled) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-xl font-semibold text-[#386641]">Please enroll to access this course</h2>
-      </div>
-    )
   }
 
   if (error) {
     return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">{error}</div>
   }
 
-  if (!course.lessons) {
-    return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">Course or lessons not found.</div>
+  if (!course || !lesson) {
+    return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">Course or lesson not found.</div>
   }
 
-  const lesson = course.lessons.find((l) => l._id === normalizedLessonId)
   const currentLessonIndex = course.lessons.findIndex((l) => l._id === normalizedLessonId)
-
-  if (!lesson && normalizedLessonId !== "start") {
-    return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">Lesson not found.</div>
-  }
 
   const handleLessonComplete = async () => {
     try {
-      await fetch('/api/progress/lesson-complete', {
+      const token = localStorage.getItem("token")
+      await fetch('http://localhost:5000/api/progress/lesson-complete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ courseId: normalizedCourseId, lessonId: normalizedLessonId })
       })
       

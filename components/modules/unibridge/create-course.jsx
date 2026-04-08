@@ -21,12 +21,17 @@ export function CreateCourse({ onCourseCreated }) {
     setLoading(true)
     
     try {
-      const res = await fetch("/api/courses", {
+      const token = localStorage.getItem("token")
+      const res = await fetch("http://localhost:5000/api/courses", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(formData)
       })
       
+      if (!res.ok) throw new Error("Failed to create course")
       const data = await res.json()
       // Fallback object struct if mock endpoint is failing
       onCourseCreated(data?.course || data || { ...formData, id: 'temp-id' })

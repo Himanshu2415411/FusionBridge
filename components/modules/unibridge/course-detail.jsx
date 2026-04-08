@@ -20,11 +20,24 @@ export function CourseDetail({ course }) {
   if (!course) return null
 
   const handleEnroll = async () => {
+    // If already enrolled, navigate to first lesson
+    if (isEnrolled) {
+      const firstLesson = course.lessons?.[0]
+
+      if (!firstLesson) {
+        alert("No lessons available")
+        return
+      }
+
+      router.push(`/unibridge/learn/${course._id}/${firstLesson._id}`)
+      return
+    }
+
+    // Otherwise, enroll in the course
     try {
       setIsEnrolling(true)
 
       const token = localStorage.getItem("token")
-      console.log("Token:", token)
 
       const res = await fetch(
         `http://localhost:5000/api/courses/${course._id}/enroll`,
@@ -37,15 +50,13 @@ export function CourseDetail({ course }) {
         }
       )
 
-      if (res.status === 401) {
-        alert("Please login again")
-        return
-      }
-
       const data = await res.json()
 
-      if (!data.success) {
-        throw new Error("Enrollment failed")
+      console.log("ENROLL RESPONSE:", data)
+      console.log("STATUS:", res.status)
+
+      if (!res.ok) {
+        throw new Error(data.message || "Enrollment failed")
       }
 
       const firstLesson = course.lessons?.[0]
@@ -56,9 +67,11 @@ export function CourseDetail({ course }) {
       }
 
       setIsEnrolled(true)
+
       router.push(`/unibridge/learn/${course._id}/${firstLesson._id}`)
     } catch (error) {
-      console.error(error)
+      console.error("Enroll Error:", error.message)
+      alert(error.message)
     } finally {
       setIsEnrolling(false)
     }
@@ -84,11 +97,11 @@ export function CourseDetail({ course }) {
         <CardContent>
           <Button 
             onClick={handleEnroll}
-            disabled={isEnrolling || isEnrolled}
+            disabled={isEnrolling}
             className="bg-[#F97A00] hover:bg-[#F97A00]/90 text-white px-8 py-6 text-lg rounded-xl shadow-md"
           >
             {isEnrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-            {isEnrolling ? "Enrolling..." : isEnrolled ? "Enrolled" : "Enroll Now"}
+            {isEnrolling ? "Enrolling..." : isEnrolled ? "Go to Course" : "Enroll Now"}
           </Button>
         </CardContent>
       </Card>

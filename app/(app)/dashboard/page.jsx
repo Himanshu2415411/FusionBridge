@@ -25,11 +25,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        const token = localStorage.getItem("token")
+        const headers = {
+          Authorization: `Bearer ${token}`
+        }
         const [overviewRes, activityRes, earnRes, growRes] = await Promise.all([
-          fetch('/api/dashboard/overview').catch(() => ({ json: () => ({}) })),
-          fetch('/api/activity').catch(() => ({ json: () => ({}) })),
-          fetch('/api/earn/projects').catch(() => ({ json: () => ({}) })),
-          fetch('/api/grow/projects').catch(() => ({ json: () => ({}) }))
+          fetch('http://localhost:5000/api/dashboard/overview', { headers }).catch(() => ({ json: () => ({}) })),
+          fetch('http://localhost:5000/api/activity', { headers }).catch(() => ({ json: () => ({}) })),
+          fetch('http://localhost:5000/api/earn/projects', { headers }).catch(() => ({ json: () => ({}) })),
+          fetch('http://localhost:5000/api/grow/projects', { headers }).catch(() => ({ json: () => ({}) }))
         ])
 
         const overview = await overviewRes.json()

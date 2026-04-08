@@ -18,9 +18,13 @@ export function AddLessons({ course, onCoursePublished }) {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch(`/api/courses/${course.id || course._id}/lessons`, {
+      const token = localStorage.getItem("token")
+      const res = await fetch(`http://localhost:5000/api/courses/${course.id || course._id}/lessons`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(formData)
       })
       
@@ -42,8 +46,12 @@ export function AddLessons({ course, onCoursePublished }) {
   const handlePublish = async () => {
     setPublishing(true)
     try {
-      await fetch(`/api/courses/${course.id || course._id}/publish`, {
+      const token = localStorage.getItem("token")
+      await fetch(`http://localhost:5000/api/courses/${course.id || course._id}/publish`, {
         method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       }).catch(() => null)
       
       onCoursePublished()

@@ -15,9 +15,18 @@ export function CertificateCard({ courseId }) {
 
     const fetchCertificate = async () => {
       try {
-        const response = await fetch(`/api/certificates/${courseId}`)
+        const token = localStorage.getItem("token")
+        const response = await fetch(
+          `http://localhost:5000/api/certificates/${courseId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        )
+        if (!response.ok) throw new Error("Failed to fetch certificate")
         const data = await response.json()
-        setCertificate(data.certificate || data)
+        setCertificate(data.certificate || data.data || data)
       } catch (error) {
         console.error("Failed to fetch certificate:", error)
       } finally {

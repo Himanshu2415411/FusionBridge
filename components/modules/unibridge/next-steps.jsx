@@ -16,10 +16,14 @@ export function NextSteps({ course }) {
   useEffect(() => {
     const fetchNextSteps = async () => {
       try {
+        const token = localStorage.getItem("token")
+        const headers = {
+          Authorization: `Bearer ${token}`
+        }
         const skill = course?.category || "general"
         const [projectsRes, roadmapRes] = await Promise.all([
-          fetch(`/api/grow/projects?skill=${encodeURIComponent(skill)}`),
-          fetch(`/api/grow/roadmap`)
+          fetch(`http://localhost:5000/api/grow/projects?skill=${encodeURIComponent(skill)}`, { headers }),
+          fetch(`http://localhost:5000/api/grow/roadmap`, { headers })
         ])
         
         const projectsData = await projectsRes.json().catch(() => ({ projects: [] }))

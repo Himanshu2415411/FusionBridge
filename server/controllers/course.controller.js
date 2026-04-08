@@ -86,3 +86,38 @@ exports.enrollCourse = async (req, res) => {
     });
   }
 };
+
+exports.getCourse = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const courseId = req.params.id;
+
+    const course = await courseService.getCourse(courseId);
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    let isEnrolled = false;
+
+    if (userId && course.studentsEnrolledList) {
+      isEnrolled = course.studentsEnrolledList.includes(userId);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...course.toObject(),
+        isEnrolled,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
