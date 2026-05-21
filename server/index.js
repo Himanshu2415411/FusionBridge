@@ -166,9 +166,9 @@ app.use((error, req, res, next) => {
    =========================== */
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-  console.log(`📍 Environment: ${process.env.NODE_ENV}`)
-  console.log(`🔗 API URL: http://localhost:${PORT}/api`)
+  console.log(` Server running on port ${PORT}`)
+  console.log(` Environment: ${process.env.NODE_ENV}`)
+  console.log(` API URL: http://localhost:${PORT}/api`)
 })
 
 /* ===========================
@@ -180,7 +180,7 @@ process.on("SIGTERM", shutdown)
 function shutdown() {
   console.log("👋 Shutting down gracefully")
   mongoose.connection.close(() => {
-    console.log("📦 MongoDB connection closed")
+    console.log(" MongoDB connection closed")
     process.exit(0)
   })
 }

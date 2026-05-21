@@ -34,7 +34,7 @@ const createUsers = async () => {
 
     // Create instructor user
     const instructorUser = new User({
-      firstName: "John",
+      firstName: "Papa",
       lastName: "Instructor",
       email: "instructor@fusionbridge.com",
       password: "instructor123",
@@ -53,7 +53,7 @@ const createUsers = async () => {
 
     // Create student user
     const studentUser = new User({
-      firstName: "Jane",
+      firstName: "Himanshu",
       lastName: "Student",
       email: "student@fusionbridge.com",
       password: "student123",
