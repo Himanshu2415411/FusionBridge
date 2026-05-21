@@ -1,5 +1,6 @@
 const express = require("express");
 const { auth } = require("../middleware/auth");
+const { ApiResponse } = require("../utils/apiResponse");
 const {
   getCareerProfile,
   createCareerProfile,

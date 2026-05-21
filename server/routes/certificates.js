@@ -1,5 +1,6 @@
 const express = require("express")
 const { verifyCertificate, getCertificateById } = require("../controllers/certificate.controller")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 

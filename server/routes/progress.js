@@ -7,6 +7,7 @@ const crypto = require("crypto")
 const { updateProgressValidation } = require("../middleware/validators/progress.validator")
 const validateRequest = require("../middleware/validateRequest")
 const { markLessonComplete } = require("../controllers/lessonProgress.controller")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 
@@ -59,19 +60,17 @@ router.post("/lesson", auth, updateProgressValidation, validateRequest,
     const course = await Course.findById(courseId)
 
     if (!course) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "Course not found").toJSON()
+      )
     }
 
     const lessonExists = findLessonInCourse(course, lessonId)
 
     if (!lessonExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Lesson not found in this course",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "Lesson not found in this course").toJSON()
+      )
     }
 
     const result = await completeLessonForUser(
@@ -89,13 +88,11 @@ router.post("/lesson", auth, updateProgressValidation, validateRequest,
       course,
     })
 
-    return res.json({
-      success: true,
-      message: result.completed
+    return res.json(
+      new ApiResponse(200, progressData, result.completed
         ? "Lesson marked as completed"
-        : "Lesson already completed",
-      data: progressData,
-    })
+        : "Lesson already completed").toJSON()
+    )
   } catch (error) {
     console.error("Lesson progress error:", error)
     return res.status(500).json({

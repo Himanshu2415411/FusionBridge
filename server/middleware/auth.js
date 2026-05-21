@@ -1,19 +1,25 @@
 const jwt = require("jsonwebtoken")
 const User = require("../models/User")
+const { getCookie } = require("./cookieAuth")
 
 const auth = async (req, res, next) => {
   try {
-    // Get token from header
-    const authHeader = req.header("Authorization")
+    // Get token from httpOnly cookie or Authorization header (fallback)
+    let token = getCookie(req)
+    
+    if (!token) {
+      const authHeader = req.header("Authorization")
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7)
+      }
+    }
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "No token provided, authorization denied",
       })
     }
-
-    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
@@ -86,13 +92,20 @@ const authorize = (...roles) => {
 // Optional auth middleware (doesn't fail if no token)
 const optionalAuth = async (req, res, next) => {
   try {
-    const authHeader = req.header("Authorization")
+    // Get token from httpOnly cookie or Authorization header
+    let token = getCookie(req)
+    
+    if (!token) {
+      const authHeader = req.header("Authorization")
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7)
+      }
+    }
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return next()
     }
 
-    const token = authHeader.substring(7)
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const user = await User.findById(decoded.id).select("-password")
 

@@ -2,6 +2,7 @@ const express = require("express")
 const { auth } = require("../middleware/auth")
 const User = require("../models/User")
 const { getDashboardOverview } = require("../controllers/dashboard.controller")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 
@@ -16,10 +17,9 @@ router.get("/", auth, async (req, res) => {
       .populate("enrolledCourses.course", "title category")
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "User not found").toJSON()
+      )
     }
 
     const dashboard = {
@@ -43,10 +43,9 @@ router.get("/", auth, async (req, res) => {
       })),
     }
 
-    res.json({
-      success: true,
-      data: dashboard,
-    })
+    res.json(
+      new ApiResponse(200, dashboard, "Dashboard fetched successfully").toJSON()
+    )
   } catch (error) {
     console.error("Dashboard error:", error)
     res.status(500).json({

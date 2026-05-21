@@ -37,16 +37,15 @@ export function CourseDetail({ course }) {
     try {
       setIsEnrolling(true)
 
-      const token = localStorage.getItem("token")
-
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
       const res = await fetch(
-        `http://localhost:5000/api/courses/${course._id}/enroll`,
+        `${apiUrl}/courses/${course._id}/enroll`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          }
+          },
+          credentials: "include",
         }
       )
 

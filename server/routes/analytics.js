@@ -5,6 +5,7 @@ const QuizAttempt = require("../models/QuizAttempt")
 const { auth, authorize } = require("../middleware/auth")
 const { getPaginationParams } = require("../utils/pagination")
 const { resetWeeklyXP } = require("../utils/weeklyReset")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 

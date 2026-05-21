@@ -1,6 +1,7 @@
 const express = require("express")
 const mongoose = require("mongoose")
 const cors = require("cors")
+const cookieParser = require("cookie-parser")
 const helmet = require("helmet")
 const compression = require("compression")
 const morgan = require("morgan")
@@ -53,6 +54,7 @@ app.use(
 // ✅ BODY PARSING — MUST COME BEFORE ROUTES
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ extended: true, limit: "10mb" }))
+app.use(cookieParser())
 
 app.use(compression())
 

@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken")
 const { body, validationResult } = require("express-validator")
 const User = require("../models/User")
 const { auth } = require("../middleware/auth")
+const { setCookie, clearCookie } = require("../middleware/cookieAuth")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 
@@ -30,11 +32,9 @@ router.post(
       // Check for validation errors
       const errors = validationResult(req)
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation failed",
-          errors: errors.array(),
-        })
+        return res.status(400).json(
+          new ApiResponse(400, null, "Validation failed", errors.array()).toJSON()
+        )
       }
 
       const { firstName, lastName, email, password } = req.body
@@ -42,10 +42,9 @@ router.post(
       // Check if user already exists
       const existingUser = await User.findOne({ email })
       if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: "User already exists with this email",
-        })
+        return res.status(400).json(
+          new ApiResponse(400, null, "User already exists with this email").toJSON()
+        )
       }
 
       // Create new user
@@ -61,22 +60,21 @@ router.post(
       // Generate JWT token
       const token = user.generateAuthToken()
 
+      // Set httpOnly cookie
+      setCookie(res, token)
+
       // Remove password from response
       const userResponse = user.toObject()
       delete userResponse.password
 
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        token,
-        user: userResponse,
-      })
+      res.status(201).json(
+        new ApiResponse(201, { user: userResponse }, "User registered successfully").toJSON()
+      )
     } catch (error) {
       console.error("Registration error:", error)
-      res.status(500).json({
-        success: false,
-        message: "Server error during registration",
-      })
+      res.status(500).json(
+        new ApiResponse(500, null, "Server error during registration").toJSON()
+      )
     }
   },
 )
@@ -95,11 +93,9 @@ router.post(
       // Check for validation errors
       const errors = validationResult(req)
       if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation failed",
-          errors: errors.array(),
-        })
+        return res.status(400).json(
+          new ApiResponse(400, null, "Validation failed", errors.array()).toJSON()
+        )
       }
 
       const { email, password } = req.body
@@ -107,27 +103,24 @@ router.post(
       // Find user and include password for comparison
       const user = await User.findOne({ email }).select("+password")
       if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        })
+        return res.status(401).json(
+          new ApiResponse(401, null, "Invalid credentials").toJSON()
+        )
       }
 
       // Check if account is active
       if (!user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: "Account has been deactivated",
-        })
+        return res.status(401).json(
+          new ApiResponse(401, null, "Account has been deactivated").toJSON()
+        )
       }
 
       // Compare password
       const isPasswordValid = await user.comparePassword(password)
       if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        })
+        return res.status(401).json(
+          new ApiResponse(401, null, "Invalid credentials").toJSON()
+        )
       }
 
       // Update last login
@@ -137,22 +130,21 @@ router.post(
       // Generate JWT token
       const token = user.generateAuthToken()
 
+      // Set httpOnly cookie
+      setCookie(res, token)
+
       // Remove password from response
       const userResponse = user.toObject()
       delete userResponse.password
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        token,
-        user: userResponse,
-      })
+      res.json(
+        new ApiResponse(200, { user: userResponse }, "Login successful").toJSON()
+      )
     } catch (error) {
       console.error("Login error:", error)
-      res.status(500).json({
-        success: false,
-        message: "Server error during login",
-      })
+      res.status(500).json(
+        new ApiResponse(500, null, "Server error during login").toJSON()
+      )
     }
   },
 )
@@ -165,33 +157,30 @@ router.get("/me", auth, async (req, res) => {
     const user = await User.findById(req.user.id).populate("enrolledCourses.course", "title thumbnail")
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "User not found").toJSON()
+      )
     }
 
-    res.json({
-      success: true,
-      user,
-    })
+    res.json(
+      new ApiResponse(200, { user }, "User fetched successfully").toJSON()
+    )
   } catch (error) {
     console.error("Get user error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
+    res.status(500).json(
+      new ApiResponse(500, null, "Server error").toJSON()
+    )
   }
 })
 
 // @route   POST /api/auth/logout
-// @desc    Logout user (client-side token removal)
+// @desc    Logout user (clear cookie)
 // @access  Private
 router.post("/logout", auth, (req, res) => {
-  res.json({
-    success: true,
-    message: "Logged out successfully",
-  })
+  clearCookie(res)
+  res.json(
+    new ApiResponse(200, null, "Logged out successfully").toJSON()
+  )
 })
 
 // @route   POST /api/auth/forgot-password

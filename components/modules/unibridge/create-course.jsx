@@ -7,9 +7,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Loader2, BookOpen } from "lucide-react"
+import { courseSchema } from "@/lib/validations"
+import { useErrorHandler } from "@/hooks/use-error-handler"
 
 export function CreateCourse({ onCourseCreated }) {
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({})
+  const { handleError, handleSuccess } = useErrorHandler()
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -18,27 +22,45 @@ export function CreateCourse({ onCourseCreated }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate form data
+    const validation = courseSchema.safeParse(formData)
+    if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors
+      setErrors(fieldErrors)
+      handleError("Please check the form for errors", "CreateCourse.validation")
+      return
+    }
+    
+    // Clear errors if validation passed
+    setErrors({})
     setLoading(true)
     
     try {
-      const token = localStorage.getItem("token")
-      const res = await fetch("http://localhost:5000/api/courses", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${apiUrl}/courses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        credentials: "include",
+        body: JSON.stringify(validation.data)
       })
       
-      if (!res.ok) throw new Error("Failed to create course")
       const data = await res.json()
-      // Fallback object struct if mock endpoint is failing
-      onCourseCreated(data?.course || data || { ...formData, id: 'temp-id' })
+      
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to create course")
+      }
+      
+      if (!data.success) {
+        throw new Error(data?.message || "Failed to create course")
+      }
+      
+      handleSuccess("Course created successfully!")
+      onCourseCreated(data.data)
     } catch (err) {
-      console.error("Failed to create course", err)
-      // Fallback for UI demonstration in case of no backend
-      onCourseCreated({ ...formData, id: 'temp-id' })
+      handleError(err, "CreateCourse.submit")
     } finally {
       setLoading(false)
     }
@@ -58,34 +80,40 @@ export function CreateCourse({ onCourseCreated }) {
           <div className="space-y-2">
             <Label className="text-[#386641] font-semibold">Course Title</Label>
             <Input 
-              required 
               value={formData.title} 
               onChange={e => setFormData({...formData, title: e.target.value})} 
               placeholder="e.g. Complete Guide to React" 
               className="rounded-lg focus-visible:ring-[#F97A00]"
             />
+            {errors.title && (
+              <p className="text-sm text-red-500">{errors.title?.[0]}</p>
+            )}
           </div>
           
           <div className="space-y-2">
             <Label className="text-[#386641] font-semibold">Description</Label>
             <Textarea 
-              required 
               value={formData.description} 
               onChange={e => setFormData({...formData, description: e.target.value})} 
               placeholder="What will students learn?" 
               className="min-h-[100px] rounded-lg focus-visible:ring-[#F97A00]"
             />
+            {errors.description && (
+              <p className="text-sm text-red-500">{errors.description?.[0]}</p>
+            )}
           </div>
           
           <div className="space-y-2">
             <Label className="text-[#386641] font-semibold">Category / Skill Tag</Label>
             <Input 
-              required 
               value={formData.category} 
               onChange={e => setFormData({...formData, category: e.target.value})} 
               placeholder="e.g. Web Development" 
               className="rounded-lg focus-visible:ring-[#F97A00]"
             />
+            {errors.category && (
+              <p className="text-sm text-red-500">{errors.category?.[0]}</p>
+            )}
           </div>
           
           <Button 

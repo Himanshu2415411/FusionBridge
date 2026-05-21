@@ -9,6 +9,7 @@ import UniBridgeOverview from "@/components/modules/unibridge/unibridge-overview
 import ContinueLearning from "@/components/modules/unibridge/continue-learning"
 import CourseGrid from "@/components/modules/unibridge/course-grid"
 import LearningActivity from "@/components/modules/unibridge/learning-activity"
+import { useErrorHandler } from "@/hooks/use-error-handler"
 
 export default function UniBridgePage() {
   const [loading, setLoading] = useState(true)
@@ -16,6 +17,7 @@ export default function UniBridgePage() {
   const [progressCourses, setProgressCourses] = useState([])
   const [courses, setCourses] = useState([])
   const [activities, setActivities] = useState([])
+  const { handleError } = useErrorHandler()
 
   useEffect(() => {
     fetchAll()
@@ -25,9 +27,9 @@ export default function UniBridgePage() {
     try {
       setLoading(true)
       const [progressRes, coursesRes, activityRes] = await Promise.all([
-        apiService.request("/progress"),
-        apiService.request("/courses"),
-        apiService.request("/activity"),
+        apiService.request("/progress").catch(() => null),
+        apiService.request("/courses").catch(() => null),
+        apiService.request("/activity").catch(() => null),
       ])
 
       if (progressRes?.stats) setStats(progressRes.stats)
@@ -35,13 +37,13 @@ export default function UniBridgePage() {
 
       if (Array.isArray(coursesRes)) setCourses(coursesRes)
       else if (coursesRes?.courses) setCourses(coursesRes.courses)
-      else if (coursesRes?.data) setCourses(coursesRes.data)
+      else if (coursesRes) setCourses(Array.isArray(coursesRes) ? coursesRes : [])
 
       if (Array.isArray(activityRes)) setActivities(activityRes)
       else if (activityRes?.activities) setActivities(activityRes.activities)
-      else if (activityRes?.data) setActivities(activityRes.data)
+      else if (activityRes) setActivities(Array.isArray(activityRes) ? activityRes : [])
     } catch (err) {
-      console.error("UniBridge page load error:", err)
+      handleError(err, "UniBridgePage.fetchAll")
     } finally {
       setLoading(false)
     }
@@ -52,7 +54,7 @@ export default function UniBridgePage() {
       await apiService.enrollInCourse(courseId)
       fetchAll()
     } catch (err) {
-      console.error("Enroll error:", err)
+      handleError(err, "UniBridgePage.handleEnroll")
     }
   }
 

@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { PlayCircle, BookOpen } from "lucide-react"
 import Link from "next/link"
+import { getCourseId, getLessonId } from "@/lib/id-utils"
 
 export default function ContinueLearning({ courses = [] }) {
   const activeCourses = courses.filter(c => (c.progress ?? 0) < 100).slice(0, 3)
@@ -52,49 +53,64 @@ export default function ContinueLearning({ courses = [] }) {
               </Link>
             </div>
           ) : (
-            activeCourses.map((course, i) => (
-              <motion.div
-                key={course._id || course.id || i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: i * 0.06 }}
-                className="rounded-lg border border-border p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1.5 flex-1 min-w-0">
-                    <h4 className="font-medium text-sm text-foreground truncate">
-                      {course.title}
-                    </h4>
-                    {course.category && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs border-[#FED16A] text-[#386641] bg-[#FED16A]/20"
-                      >
-                        {course.category}
-                      </Badge>
-                    )}
+            activeCourses.map((course, i) => {
+              const courseId = getCourseId(course)
+              const lastLessonId = getLessonId(course.lastAccessedLesson) || course.lessons?.[0]?._id
+              
+              return (
+                <motion.div
+                  key={courseId || i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: i * 0.06 }}
+                  className="rounded-lg border border-border p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <h4 className="font-medium text-sm text-foreground truncate">
+                        {course.title}
+                      </h4>
+                      {course.category && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs border-[#FED16A] text-[#386641] bg-[#FED16A]/20"
+                        >
+                          {course.category}
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {course.progress ?? 0}%
+                    </span>
                   </div>
-                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {course.progress ?? 0}%
-                  </span>
-                </div>
 
-                <Progress
-                  value={course.progress ?? 0}
-                  className="h-1.5 bg-[#386641]/10 [&>div]:bg-[#386641]"
-                />
+                  <Progress
+                    value={course.progress ?? 0}
+                    className="h-1.5 bg-[#386641]/10 [&>div]:bg-[#386641]"
+                  />
 
-                <Link href={`/unibridge/learn/${course._id || course.id}/${course.lastLessonId || 'start'}`}>
-                  <Button
-                    size="sm"
-                    className="bg-[#F97A00] hover:bg-[#e06900] text-white text-xs mt-1"
-                  >
-                    <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
-                    Continue
-                  </Button>
-                </Link>
-              </motion.div>
-            ))
+                  {courseId && lastLessonId ? (
+                    <Link href={`/unibridge/learn/${courseId}/${lastLessonId}`}>
+                      <Button
+                        size="sm"
+                        className="bg-[#F97A00] hover:bg-[#e06900] text-white text-xs mt-1"
+                      >
+                        <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
+                        Continue
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      size="sm"
+                      disabled
+                      className="bg-[#F97A00]/50 text-white text-xs mt-1"
+                    >
+                      No lesson available
+                    </Button>
+                  )}
+                </motion.div>
+              )
+            })
           )}
         </CardContent>
       </Card>

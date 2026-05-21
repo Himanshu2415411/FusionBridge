@@ -11,6 +11,7 @@ const { submitQuizValidationWithParams } = require("../middleware/validators/qui
 const validateRequest = require("../middleware/validateRequest")
 const upload = require("../middleware/uploadCloudinary")
 const courseController = require("../controllers/course.controller")
+const { ApiResponse, ApiResponseWithPagination } = require("../utils/apiResponse")
 
 const router = express.Router()
 
@@ -76,17 +77,15 @@ router.get("/", optionalAuth, async (req, res) => {
     const totalCourses = await Course.countDocuments(query)
     const totalPages = Math.ceil(totalCourses / limit)
 
-    res.json({
-      success: true,
-      page,
-      limit,
-      totalCourses,
-      totalPages,
-      courses,
-    })
+    const pagination = { page, limit, totalCourses, totalPages }
+    res.status(200).json(
+      new ApiResponseWithPagination(200, courses, pagination, "Courses fetched successfully").toJSON()
+    )
   } catch (error) {
     console.error("Get courses error:", error)
-    res.status(500).json({ success: false, message: "Server error" })
+    res.status(500).json(
+      new ApiResponse(500, null, "Server error").toJSON()
+    )
   }
 })
 
@@ -105,10 +104,9 @@ router.get("/enrolled", auth, async (req, res) => {
       })
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "User not found").toJSON()
+      )
     }
 
     const enrolledCourses = user.enrolledCourses
@@ -153,16 +151,14 @@ router.get("/enrolled", auth, async (req, res) => {
         }
       })
 
-    res.json({
-      success: true,
-      courses: enrolledCourses,
-    })
+    res.json(
+      new ApiResponse(200, { courses: enrolledCourses }, "Enrolled courses fetched successfully").toJSON()
+    )
   } catch (error) {
     console.error("Get enrolled courses error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
+    res.status(500).json(
+      new ApiResponse(500, null, "Server error").toJSON()
+    )
   }
 })
 
@@ -180,10 +176,9 @@ router.get("/:id", optionalAuth, async (req, res) => {
     )
 
     if (!course) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "Course not found").toJSON()
+      )
     }
 
     let isEnrolled = false
@@ -237,19 +232,22 @@ router.get("/:id", optionalAuth, async (req, res) => {
         .filter((section) => section.lessons.length > 0)
     }
 
-    res.json({
-      success: true,
-      course: {
-        ...course.toObject(),
-        curriculum: safeCurriculum,
-        isEnrolled,
-        progress,
-        completed,
-      },
-    })
+    res.json(
+      new ApiResponse(200, {
+        course: {
+          ...course.toObject(),
+          curriculum: safeCurriculum,
+          isEnrolled,
+          progress,
+          completed,
+        }
+      }, "Course fetched successfully").toJSON()
+    )
   } catch (error) {
     console.error("Get course error:", error)
-    res.status(500).json({ success: false, message: "Server error" })
+    res.status(500).json(
+      new ApiResponse(500, null, "Server error").toJSON()
+    )
   }
 })
 

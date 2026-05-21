@@ -3,6 +3,7 @@ const { body, validationResult } = require("express-validator")
 const User = require("../models/User")
 const { auth, authorize } = require("../middleware/auth")
 const { getDashboard } = require("../controllers/dashboard.controller")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 
@@ -18,22 +19,19 @@ router.get("/profile", auth, async (req, res) => {
       .select("-password")
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json(
+        new ApiResponse(404, null, "User not found").toJSON()
+      )
     }
 
-    res.json({
-      success: true,
-      user,
-    })
+    res.json(
+      new ApiResponse(200, { user }, "Profile fetched successfully").toJSON()
+    )
   } catch (error) {
     console.error("Get profile error:", error)
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
+    res.status(500).json(
+      new ApiResponse(500, null, "Server error").toJSON()
+    )
   }
 })
 

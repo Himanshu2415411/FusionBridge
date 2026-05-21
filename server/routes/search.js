@@ -1,6 +1,7 @@
 const express = require("express")
 const { auth } = require("../middleware/auth")
 const { searchPlatform } = require("../controllers/search.controller")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 

@@ -6,8 +6,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BookOpen } from "lucide-react"
+import { getCourseId } from "@/lib/id-utils"
 
 export function CourseCard({ course }) {
+  const courseId = getCourseId(course)
+  
   return (
     <motion.div whileHover={{ y: -6 }} className="h-full">
       <Card className="rounded-xl border shadow-sm hover:shadow-lg transition bg-white h-full flex flex-col">
@@ -25,7 +28,7 @@ export function CourseCard({ course }) {
           <CardDescription className="line-clamp-2">{course.description}</CardDescription>
         </CardHeader>
         <CardContent className="mt-auto pt-4">
-          <Link href={`/unibridge/courses/${course._id|| course._id || '#'}`} className="block">
+          <Link href={`/unibridge/courses/${courseId || '#'}`} className="block">
             <Button className="w-full bg-[#F97A00] hover:bg-[#F97A00]/90 text-white font-medium rounded-xl">
               View Course
             </Button>

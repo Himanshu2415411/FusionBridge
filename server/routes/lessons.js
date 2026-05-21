@@ -2,6 +2,7 @@ const express = require("express")
 const { auth } = require("../middleware/auth")
 const { getLessonDetails } = require("../controllers/lessonProgress.controller")
 const { submitQuiz, getQuizAttempts } = require("../controllers/quiz.controller")
+const { ApiResponse } = require("../utils/apiResponse")
 
 const router = express.Router()
 
