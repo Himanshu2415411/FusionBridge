@@ -12,6 +12,10 @@ const { isEnrolledInCourse, ownsProgressRecord } = require("../middleware/author
 const { validateWatchTime, preventDuplicateCompletion, validateLessonExists } = require("../middleware/lessonValidation")
 const { xpActionLimiter } = require("../middleware/rateLimiting")
 const { atomicLessonCompletion, atomicXpAward } = require("../utils/transactions")
+const { logActivity, ACTIVITY_TYPES } = require("../services/activityLogger")
+const { getBadgesForEvent, getBadgeDetails } = require("../utils/badgeEarner")
+const { generateCertificateForCompletion } = require("../controllers/certificate.controller")
+const { updateStreak, checkStreakMilestone } = require("../utils/streakCalculator")
 
 const router = express.Router()
 
@@ -53,7 +57,7 @@ const buildProgressPayload = ({ courseId, lessonId, enrollment, course }) => {
 
 /**
  * POST /api/progress/lesson
- * Marks a lesson as completed
+ * Marks a lesson as completed with XP, badges, and activity logging
  * Requires: 80% watch time, enrollment, valid lesson
  */
 router.post(
@@ -67,6 +71,15 @@ router.post(
     try {
       const { courseId, lessonId } = req.body
       const userId = req.user._id
+
+      const user = await User.findById(userId)
+      const course = await Course.findById(courseId)
+
+      if (!course) {
+        return res.status(404).json(
+          new ApiResponse(404, null, "Course not found").toJSON()
+        )
+      }
 
       // Use atomic transaction for consistency
       const completionResult = await atomicLessonCompletion(userId, courseId, lessonId)
@@ -82,8 +95,176 @@ router.post(
 
       if (!xpResult.success) {
         console.error("XP award failed:", xpResult.error)
-        // Don't fail the response, just log it
       }
+
+      // Update user with new XP and level
+      if (xpResult.success) {
+        user.xp = xpResult.newXp
+        user.level = xpResult.newLevel
+      }
+
+      // Get lesson details
+      let lessonTitle = "Lesson"
+      for (const section of course.curriculum) {
+        const lesson = section.lessons.find((l) => l._id.toString() === lessonId)
+        if (lesson) {
+          lessonTitle = lesson.title
+          break
+        }
+      }
+
+      // Log activity
+      await logActivity(userId, ACTIVITY_TYPES.LESSON_COMPLETED, {
+        courseId,
+        courseName: course.title,
+        lessonId,
+        lessonName: lessonTitle,
+      })
+
+      // Check for badges
+      const enrollment = user.enrolledCourses.find((ec) => ec.course.toString() === courseId)
+      const completedLessonsInCourse = enrollment?.completedLessons?.length || 0
+
+      let badgesEarned = []
+      let totalXpFromBadges = 0
+
+      badgesEarned = getBadgesForEvent('lesson_completed', {
+        lessonsCompleted: completedLessonsInCourse + 1,
+      })
+
+      // Add badges to user
+      for (const badgeId of badgesEarned) {
+        const badge = getBadgeDetails(badgeId)
+        if (badge && !user.badges.find((b) => b.name === badge.name)) {
+          user.badges.push({
+            name: badge.name,
+            icon: badge.icon,
+            earnedAt: new Date(),
+          })
+          totalXpFromBadges += badge.xp
+          user.xp += badge.xp
+
+          // Log badge earned
+          await logActivity(userId, ACTIVITY_TYPES.BADGE_EARNED, {
+            badgeName: badge.name,
+            badgeId: badge.id,
+            icon: badge.icon,
+          })
+        }
+      }
+
+      // Recalculate level with badge XP
+      user.level = Math.floor(user.xp / 1000) + 1
+
+      // Update streak
+      const today = new Date()
+      const lastActivityDay = user.lastActivityDate ? new Date(user.lastActivityDate) : null
+      const lastActivityDayOnly = lastActivityDay
+        ? new Date(lastActivityDay.getFullYear(), lastActivityDay.getMonth(), lastActivityDay.getDate())
+        : null
+      const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      const wasActivityToday = lastActivityDayOnly && lastActivityDayOnly.getTime() === todayOnly.getTime()
+
+      const streakUpdate = updateStreak(
+        user.longestStreak || 0,
+        user.currentStreak || 0,
+        user.lastActivityDate,
+        wasActivityToday
+      )
+
+      user.longestStreak = streakUpdate.longestStreak
+      user.currentStreak = streakUpdate.currentStreak
+      user.lastActivityDate = new Date()
+
+      // Check for streak milestones
+      const streakMilestone = checkStreakMilestone(user.currentStreak)
+      if (streakMilestone) {
+        const milestoneBadge = getBadgeDetails(streakMilestone.badge.toLowerCase().replace(/ /g, '_'))
+        if (milestoneBadge && !user.badges.find((b) => b.name === milestoneBadge.name)) {
+          user.badges.push({
+            name: milestoneBadge.name,
+            icon: milestoneBadge.icon,
+            earnedAt: new Date(),
+          })
+          user.xp += milestoneBadge.xp
+
+          await logActivity(userId, ACTIVITY_TYPES.STREAK_MILESTONE, {
+            streakCount: user.currentStreak,
+          })
+
+          await logActivity(userId, ACTIVITY_TYPES.BADGE_EARNED, {
+            badgeName: milestoneBadge.name,
+            badgeId: milestoneBadge.id,
+            icon: milestoneBadge.icon,
+          })
+        }
+      }
+
+      // Check if course is completed
+      const courseCompletion = enrollment && enrollment.completedLessons.length === course.totalLessons
+      if (courseCompletion && !enrollment.isCourseCompleted) {
+        enrollment.isCourseCompleted = true
+        enrollment.completedAt = new Date()
+
+        // Award course completion XP
+        const courseXpResult = await atomicXpAward(userId, COURSE_COMPLETION_XP, "course_completion")
+        if (courseXpResult.success) {
+          user.xp = courseXpResult.newXp
+          user.level = courseXpResult.newLevel
+        }
+
+        // Log course completion
+        await logActivity(userId, ACTIVITY_TYPES.COURSE_COMPLETED, {
+          courseId,
+          courseName: course.title,
+        })
+
+        // Check for course completion badges
+        const coursesCompleted = user.enrolledCourses.filter(
+          (ec) => ec.isCourseCompleted
+        ).length
+
+        const courseBadges = getBadgesForEvent('course_completed', {
+          coursesCompleted,
+        })
+
+        for (const badgeId of courseBadges) {
+          const badge = getBadgeDetails(badgeId)
+          if (badge && !user.badges.find((b) => b.name === badge.name)) {
+            user.badges.push({
+              name: badge.name,
+              icon: badge.icon,
+              earnedAt: new Date(),
+            })
+            user.xp += badge.xp
+
+            await logActivity(userId, ACTIVITY_TYPES.BADGE_EARNED, {
+              badgeName: badge.name,
+              badgeId: badge.id,
+              icon: badge.icon,
+            })
+          }
+        }
+
+        // Generate certificate
+        const certificate = await generateCertificateForCompletion(userId, courseId)
+        if (certificate) {
+          enrollment.certificateUnlocked = true
+        }
+      }
+
+      // Update level up status
+      const leveledUp = xpResult.success && xpResult.leveledUp
+
+      if (leveledUp) {
+        await logActivity(userId, ACTIVITY_TYPES.LEVEL_UP, {
+          newLevel: user.level,
+          totalXp: user.xp,
+        })
+      }
+
+      // Save user
+      await user.save()
 
       const { progress } = completionResult
 
@@ -92,21 +273,32 @@ router.post(
           200,
           {
             progress,
-            xpAwarded: xpResult.success ? 10 : 0,
-            newLevel: xpResult.newLevel,
-            leveledUp: xpResult.leveledUp,
+            xpAwarded: (xpResult.success ? 10 : 0) + totalXpFromBadges + (courseCompletion ? COURSE_COMPLETION_XP : 0),
+            newLevel: user.level,
+            totalXp: user.xp,
+            leveledUp,
+            badgesEarned: badgesEarned.map((id) => {
+              const badge = getBadgeDetails(id)
+              return {
+                id,
+                name: badge?.name,
+                icon: badge?.icon,
+              }
+            }),
+            courseCompleted: courseCompletion,
+            certificateUnlocked: courseCompletion,
           },
           "Lesson marked as completed"
         ).toJSON()
       )
     } catch (error) {
-    console.error("Lesson progress error:", error)
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    })
+      console.error("Lesson progress error:", error)
+      return res.status(500).json(
+        new ApiResponse(500, null, "Server error").toJSON()
+      )
+    }
   }
-})
+)
 
 /**
  * POST /api/progress/lesson/access
