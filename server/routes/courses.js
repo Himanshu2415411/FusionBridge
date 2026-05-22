@@ -12,6 +12,8 @@ const validateRequest = require("../middleware/validateRequest")
 const upload = require("../middleware/uploadCloudinary")
 const courseController = require("../controllers/course.controller")
 const { ApiResponse, ApiResponseWithPagination } = require("../utils/apiResponse")
+const { isEnrolledInCourse } = require("../middleware/authorization")
+const { generateSignedVideoUrl } = require("../utils/signedVideoUrl")
 
 const router = express.Router()
 
@@ -1049,6 +1051,65 @@ router.patch(
   "/:id/publish",
   auth,
   courseController.publishCourse
+)
+
+/* ===========================
+   GET /api/courses/:courseId/video-url/:lessonId
+   Get signed URL for lesson video
+   Access: Only enrolled users
+   =========================== */
+router.get(
+  "/:courseId/video-url/:lessonId",
+  auth,
+  isEnrolledInCourse,
+  async (req, res) => {
+    try {
+      const { courseId, lessonId } = req.params
+      const course = req.course
+
+      // Find lesson in curriculum
+      let lesson = null
+      for (const section of course.curriculum || []) {
+        const found = section.lessons?.find(l => l._id.toString() === lessonId)
+        if (found) {
+          lesson = found
+          break
+        }
+      }
+
+      if (!lesson) {
+        return res.status(404).json(
+          new ApiResponse(404, null, "Lesson not found").toJSON()
+        )
+      }
+
+      if (!lesson.videoPublicId) {
+        return res.status(404).json(
+          new ApiResponse(404, null, "Video not available for this lesson").toJSON()
+        )
+      }
+
+      // Generate signed URL valid for 24 hours
+      const { url, expiresAt } = generateSignedVideoUrl(lesson.videoPublicId, 24)
+
+      res.json(
+        new ApiResponse(
+          200,
+          {
+            url,
+            expiresAt,
+            videoPublicId: lesson.videoPublicId,
+          },
+          "Signed video URL generated"
+        ).toJSON()
+      )
+    } catch (error) {
+      console.error("Signed video URL error:", error)
+      res.status(500).json(
+        new ApiResponse(500, null, "Server error").toJSON()
+      )
+    }
+  }
 )
 
 module.exports = router

@@ -8,6 +8,10 @@ const { updateProgressValidation } = require("../middleware/validators/progress.
 const validateRequest = require("../middleware/validateRequest")
 const { markLessonComplete } = require("../controllers/lessonProgress.controller")
 const { ApiResponse } = require("../utils/apiResponse")
+const { isEnrolledInCourse, ownsProgressRecord } = require("../middleware/authorization")
+const { validateWatchTime, preventDuplicateCompletion, validateLessonExists } = require("../middleware/lessonValidation")
+const { xpActionLimiter } = require("../middleware/rateLimiting")
+const { atomicLessonCompletion, atomicXpAward } = require("../utils/transactions")
 
 const router = express.Router()
 
@@ -50,50 +54,52 @@ const buildProgressPayload = ({ courseId, lessonId, enrollment, course }) => {
 /**
  * POST /api/progress/lesson
  * Marks a lesson as completed
+ * Requires: 80% watch time, enrollment, valid lesson
  */
-router.post("/lesson", auth, updateProgressValidation, validateRequest,
+router.post(
+  "/lesson",
+  auth,
+  xpActionLimiter,
+  validateWatchTime,
+  preventDuplicateCompletion,
+  validateLessonExists,
   async (req, res) => {
     try {
       const { courseId, lessonId } = req.body
+      const userId = req.user._id
 
-    const user = await User.findById(req.user._id)
-    const course = await Course.findById(courseId)
+      // Use atomic transaction for consistency
+      const completionResult = await atomicLessonCompletion(userId, courseId, lessonId)
 
-    if (!course) {
-      return res.status(404).json(
-        new ApiResponse(404, null, "Course not found").toJSON()
+      if (!completionResult.success) {
+        return res.status(409).json(
+          new ApiResponse(409, null, completionResult.error).toJSON()
+        )
+      }
+
+      // Award XP for lesson completion (10 XP)
+      const xpResult = await atomicXpAward(userId, 10, "lesson_completion")
+
+      if (!xpResult.success) {
+        console.error("XP award failed:", xpResult.error)
+        // Don't fail the response, just log it
+      }
+
+      const { progress } = completionResult
+
+      return res.json(
+        new ApiResponse(
+          200,
+          {
+            progress,
+            xpAwarded: xpResult.success ? 10 : 0,
+            newLevel: xpResult.newLevel,
+            leveledUp: xpResult.leveledUp,
+          },
+          "Lesson marked as completed"
+        ).toJSON()
       )
-    }
-
-    const lessonExists = findLessonInCourse(course, lessonId)
-
-    if (!lessonExists) {
-      return res.status(404).json(
-        new ApiResponse(404, null, "Lesson not found in this course").toJSON()
-      )
-    }
-
-    const result = await completeLessonForUser(
-      user,
-      course,
-      lessonId
-    )
-
-    const progressData = buildProgressPayload({
-      courseId,
-      lessonId,
-      enrollment: user.enrolledCourses.find(
-        ec => ec.course.toString() === courseId
-      ),
-      course,
-    })
-
-    return res.json(
-      new ApiResponse(200, progressData, result.completed
-        ? "Lesson marked as completed"
-        : "Lesson already completed").toJSON()
-    )
-  } catch (error) {
+    } catch (error) {
     console.error("Lesson progress error:", error)
     return res.status(500).json({
       success: false,
