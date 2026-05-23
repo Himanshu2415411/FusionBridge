@@ -331,7 +331,6 @@ export function ProgressiveImage({
         />
       )}
 
-      {/* Full image */}
       <Image
         src={src}
         alt={alt}
