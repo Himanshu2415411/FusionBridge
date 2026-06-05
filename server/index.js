@@ -91,6 +91,7 @@ app.use("/api/grow", growRoutes)
 app.use("/api/activity", require("./routes/activity"))
 app.use("/api/search", require("./routes/search"))
 app.use("/api/leaderboard", require("./routes/leaderboard"))
+app.use("/api/ai", require("./routes/ai"))
 
 
 //Auto Run Weekly Reset

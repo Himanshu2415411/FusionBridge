@@ -36,6 +36,21 @@ const config = {
   // Logging
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
 
+  // Gemini AI
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+  GEMINI_RATE_LIMIT_DAILY: parseInt(process.env.GEMINI_RATE_LIMIT_DAILY || "1500"),
+  GEMINI_COST_MONITORING_ENABLED: process.env.GEMINI_COST_MONITORING_ENABLED === "true",
+  GEMINI_CACHE_TTL_SECONDS: parseInt(process.env.GEMINI_CACHE_TTL_SECONDS || "86400"),
+  GEMINI_CACHE_ENABLED: process.env.GEMINI_CACHE_ENABLED === "true",
+  GEMINI_LOG_API_CALLS: process.env.GEMINI_LOG_API_CALLS === "true",
+
+  // Feature Flags
+  FEATURE_AI_QUIZ_GENERATION: process.env.FEATURE_AI_QUIZ_GENERATION === "true",
+  FEATURE_AI_CHATBOT: process.env.FEATURE_AI_CHATBOT === "true",
+  FEATURE_AI_SUMMARIZATION: process.env.FEATURE_AI_SUMMARIZATION === "true",
+  FEATURE_AI_CODE_REVIEW: process.env.FEATURE_AI_CODE_REVIEW === "true",
+
   // Derived values
   isDevelopment: process.env.NODE_ENV === "development",
   isProduction: process.env.NODE_ENV === "production",
