@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PlayCircle, BookOpen, Loader2 } from "lucide-react"
+import apiService from "@/lib/api"
 
 export function CourseDetail({ course }) {
   const router = useRouter()
@@ -37,26 +38,7 @@ export function CourseDetail({ course }) {
     try {
       setIsEnrolling(true)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(
-        `${apiUrl}/courses/${course._id}/enroll`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }
-      )
-
-      const data = await res.json()
-
-      console.log("ENROLL RESPONSE:", data)
-      console.log("STATUS:", res.status)
-
-      if (!res.ok) {
-        throw new Error(data.message || "Enrollment failed")
-      }
+      await apiService.enrollInCourse(course._id)
 
       const firstLesson = course.lessons?.[0]
 

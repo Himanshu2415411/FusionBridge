@@ -10,6 +10,8 @@ export function LessonSidebar({ course, currentLessonId, progress, progressPerce
   if (!course || !course.lessons) return null
 
   const completedLessons = progress?.completedLessons || []
+  const completedLessonsCount = progress?.completedLessonsCount ?? completedLessons.length
+  const effectiveProgressPercent = progress?.progressPercent ?? progressPercent ?? 0
 
   return (
     <motion.div
@@ -23,11 +25,11 @@ export function LessonSidebar({ course, currentLessonId, progress, progressPerce
           <CardTitle className="text-lg font-bold text-[#386641]">Course Progress</CardTitle>
           <div className="mt-4 space-y-2">
             <div className="flex justify-between text-sm text-[#386641]/70">
-              <span>{completedLessons.length} of {course.lessons.length} completed</span>
-              <span>{Math.round(progressPercent)}%</span>
+              <span>{completedLessonsCount} of {course.lessons.length} completed</span>
+              <span>{Math.round(effectiveProgressPercent)}%</span>
             </div>
             <Progress 
-              value={progressPercent} 
+              value={effectiveProgressPercent} 
               className="h-2 bg-[#FFF4A4] [&>div]:bg-[#F97A00]" 
             />
           </div>
