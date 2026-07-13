@@ -19,41 +19,83 @@ export default function EarnPage() {
   const [earnings, setEarnings] = useState({})
   const [loading, setLoading] = useState(true)
 
+  const toEstimatedBudget = (budget) => {
+    if (typeof budget === "number") return budget
+    if (!budget) return 0
+    const match = String(budget).match(/\d[\d,]*/)
+    return match ? Number.parseInt(match[0].replace(/,/g, ""), 10) : 0
+  }
+
+  const normalizeProposalCards = (recentProjects = []) => {
+    return recentProjects.map((project) => ({
+      _id: project._id || project.id,
+      templateName: project.title,
+      category: project.category,
+      description: project.description,
+      estimatedBudget: toEstimatedBudget(project.budget),
+    }))
+  }
+
+  const normalizeContracts = (items = []) => {
+    return items.map((contract) => ({
+      ...contract,
+      title: contract.project?.title || contract.title || contract.clientName || "Contract",
+      status: contract.project?.status || contract.status || "pending",
+      amount: contract.project?.estimatedBudget ?? contract.amount ?? contract.value ?? 0,
+    }))
+  }
+
+  const normalizeEarnings = (dashboard = {}) => ({
+    totalRevenue: dashboard.totalEarned ?? dashboard.totalRevenue ?? 0,
+    monthlyRevenue: dashboard.thisMonth ?? dashboard.monthlyRevenue ?? 0,
+    pendingPayments: dashboard.pendingPayments ?? 0,
+    trend: Array.isArray(dashboard.earnings)
+      ? dashboard.earnings.map((entry) => ({
+          month: entry.month,
+          revenue: entry.amount,
+        }))
+      : [],
+  })
+
   useEffect(() => {
     async function fetchData() {
       try {
         const [dashboardRes, projectsRes, proposalsRes, contractsRes, earningsRes] =
           await Promise.allSettled([
-            apiService.getEarnDashboard(),
-            apiService.getProjects({ limit: 10 }),
+            apiService.getEarnDashboardData(),
+            apiService.getEarnProjectsData({ limit: 10 }),
             apiService.getProposals(),
-            apiService.getContracts({ limit: 5 }),
+            apiService.getWorkspaceContractsData({ limit: 5 }),
             apiService.getEarnings(),
           ])
 
         if (dashboardRes.status === "fulfilled") {
-          const d = dashboardRes.value?.data || dashboardRes.value || {}
+          const d = dashboardRes.value || {}
           setStats({
-            totalEarnings: d.totalEarnings ?? 0,
+            totalEarnings: d.totalEarned ?? d.totalRevenue ?? 0,
             activeProjects: d.activeProjects ?? 0,
             completedProjects: d.completedProjects ?? 0,
             pendingPayments: d.pendingPayments ?? 0,
           })
+
+          setEarnings(normalizeEarnings(d))
+
+          const recentProjects = Array.isArray(d.recentProjects) ? d.recentProjects : []
+          setProposals(normalizeProposalCards(recentProjects))
         }
         if (projectsRes.status === "fulfilled") {
-          const d = projectsRes.value?.data
-          setProjects(Array.isArray(d) ? d : d?.projects || [])
+          setProjects(Array.isArray(projectsRes.value) ? projectsRes.value : [])
         }
         if (proposalsRes.status === "fulfilled") {
-          const d = proposalsRes.value?.data
-          setProposals(Array.isArray(d) ? d : d?.proposals || [])
+          if (Array.isArray(proposalsRes.value) && proposalsRes.value.length > 0) {
+            setProposals(normalizeProposalCards(proposalsRes.value))
+          }
         }
         if (contractsRes.status === "fulfilled") {
-          const d = contractsRes.value?.data
-          setContracts(Array.isArray(d) ? d : d?.contracts || [])
+          setContracts(normalizeContracts(Array.isArray(contractsRes.value) ? contractsRes.value : []))
         }
         if (earningsRes.status === "fulfilled") {
-          setEarnings(earningsRes.value?.data || earningsRes.value || {})
+          setEarnings(normalizeEarnings(earningsRes.value || {}))
         }
       } finally {
         setLoading(false)
