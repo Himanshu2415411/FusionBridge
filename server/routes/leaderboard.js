@@ -2,7 +2,6 @@ const express = require('express')
 const User = require('../models/User')
 const { optionalAuth } = require('../middleware/auth')
 const { ApiResponseWithPagination } = require('../utils/apiResponse')
-const { getPaginationParams } = require('../lib/pagination')
 const router = express.Router()
 
 /**

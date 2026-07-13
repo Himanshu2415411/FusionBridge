@@ -4,12 +4,12 @@
  */
 
 class ApiResponse {
-  constructor(
-    public statusCode: number,
-    public data: any,
-    public message: string = "Success",
-    public errors?: Record<string, any>
-  ) {}
+  constructor(statusCode, data, message = "Success", errors = undefined) {
+    this.statusCode = statusCode
+    this.data = data
+    this.message = message
+    this.errors = errors
+  }
 
   toJSON() {
     return {
@@ -26,17 +26,12 @@ class ApiResponse {
  * API Response with Pagination
  */
 class ApiResponseWithPagination {
-  constructor(
-    public statusCode: number,
-    public data: any[],
-    public pagination: {
-      page: number
-      limit: number
-      total: number
-      pages: number
-    },
-    public message: string = "Success"
-  ) {}
+  constructor(statusCode, data, pagination, message = "Success") {
+    this.statusCode = statusCode
+    this.data = data
+    this.pagination = pagination
+    this.message = message
+  }
 
   toJSON() {
     return {
@@ -52,7 +47,7 @@ class ApiResponseWithPagination {
 /**
  * Send Success Response
  */
-const sendSuccess = (res: any, statusCode = 200, data: any = null, message = "Success") => {
+const sendSuccess = (res, statusCode = 200, data = null, message = "Success") => {
   res.status(statusCode).json(new ApiResponse(statusCode, data, message).toJSON())
 }
 
@@ -60,9 +55,9 @@ const sendSuccess = (res: any, statusCode = 200, data: any = null, message = "Su
  * Send Paginated Response
  */
 const sendPaginated = (
-  res: any,
-  data: any[],
-  pagination: { page: number; limit: number; total: number },
+  res,
+  data,
+  pagination,
   message = "Success"
 ) => {
   const pages = Math.ceil(pagination.total / pagination.limit)
@@ -83,10 +78,10 @@ const sendPaginated = (
  * Send Error Response
  */
 const sendError = (
-  res: any,
+  res,
   statusCode = 500,
   message = "Server Error",
-  errors?: Record<string, any>
+  errors = undefined
 ) => {
   res.status(statusCode).json(
     new ApiResponse(statusCode, null, message, errors).toJSON()
@@ -96,7 +91,7 @@ const sendError = (
 /**
  * Send Validation Error
  */
-const sendValidationError = (res: any, errors: Record<string, any>) => {
+const sendValidationError = (res, errors) => {
   res.status(400).json(
     new ApiResponse(400, null, "Validation Failed", errors).toJSON()
   )

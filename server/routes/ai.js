@@ -21,13 +21,115 @@ const { ApiResponse } = require('../utils/apiResponse')
 const logger = require('../utils/logger')
 
 const router = express.Router()
-const geminiService = getGeminiService()
+let geminiService = null
+
+const getGeminiServiceInstance = () => {
+  if (!process.env.GEMINI_API_KEY) {
+    return null
+  }
+
+  if (!geminiService) {
+    try {
+      geminiService = getGeminiService()
+    } catch (error) {
+      logger.error('Failed to initialize Gemini service:', error)
+      return null
+    }
+  }
+
+  return geminiService
+}
+
+const requireGeminiService = (res) => {
+  const service = getGeminiServiceInstance()
+
+  if (!service) {
+    res.status(503).json(
+      new ApiResponse(503, null, 'Gemini AI is not configured. Set GEMINI_API_KEY to enable AI endpoints.')
+    )
+    return null
+  }
+
+  return service
+}
 
 /**
  * Error handler wrapper for async routes
  */
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next)
+}
+
+const findEmbeddedLesson = (course, lessonId) => {
+  for (const section of course?.curriculum || []) {
+    for (const lesson of section.lessons || []) {
+      if (lesson?._id?.toString() === lessonId.toString()) {
+        return { lesson, sectionTitle: section.title }
+      }
+    }
+  }
+
+  return null
+}
+
+const buildLessonContent = ({ courseTitle, lesson, sectionTitle }) => {
+  const resources = Array.isArray(lesson?.resources) && lesson.resources.length > 0
+    ? lesson.resources
+        .map((resource) => `${resource.title || 'Resource'}${resource.url ? `: ${resource.url}` : ''}`)
+        .join('\n')
+    : ''
+
+  return [
+    courseTitle ? `Course: ${courseTitle}` : null,
+    sectionTitle ? `Section: ${sectionTitle}` : null,
+    lesson?.title ? `Lesson: ${lesson.title}` : null,
+    lesson?.description ? `Description: ${lesson.description}` : null,
+    lesson?.content ? `Content: ${lesson.content}` : null,
+    resources ? `Resources:\n${resources}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+const resolveLessonContext = async ({ courseId, lessonId }) => {
+  const lessonDoc = await Lesson.findById(lessonId).lean()
+
+  if (lessonDoc) {
+    const course = lessonDoc.course ? await Course.findById(lessonDoc.course).select('title').lean() : null
+
+    return {
+      courseTitle: course?.title,
+      lesson: lessonDoc,
+      lessonTitle: lessonDoc.title,
+      lessonContent: lessonDoc.content || buildLessonContent({
+        courseTitle: course?.title,
+        lesson: lessonDoc,
+      }),
+    }
+  }
+
+  const course = await Course.findById(courseId).select('title curriculum').lean()
+
+  if (!course) {
+    return null
+  }
+
+  const embedded = findEmbeddedLesson(course, lessonId)
+
+  if (!embedded) {
+    return null
+  }
+
+  return {
+    courseTitle: course.title,
+    lesson: embedded.lesson,
+    lessonTitle: embedded.lesson.title,
+    lessonContent: buildLessonContent({
+      courseTitle: course.title,
+      lesson: embedded.lesson,
+      sectionTitle: embedded.sectionTitle,
+    }),
+  }
 }
 
 /* ===========================
@@ -56,23 +158,28 @@ router.post(
     }
 
     try {
+      const geminiService = requireGeminiService(res)
+      if (!geminiService) {
+        return
+      }
+
       // Check rate limit
       await checkGeminiRateLimit(req.user._id, req.user.subscription === 'premium')
 
-      // Fetch lesson content
-      const lesson = await Lesson.findById(lessonId)
-      if (!lesson) {
+      const lessonContext = await resolveLessonContext({ courseId, lessonId })
+
+      if (!lessonContext) {
         return res.status(404).json(new ApiResponse(404, null, 'Lesson not found'))
       }
 
-      logger.info(`📚 Generating quiz for lesson: ${lesson.title}`)
+      logger.info(`📚 Generating quiz for lesson: ${lessonContext.lessonTitle}`)
 
       // Call Gemini to generate quiz
-      const quizData = await geminiService.generateQuiz(lesson.content, {
+      const quizData = await geminiService.generateQuiz(lessonContext.lessonContent, {
         questionCount,
         difficulty,
         questionTypes,
-        topic: lesson.title,
+        topic: lessonContext.lessonTitle,
       })
 
       // Save quiz to database
@@ -177,12 +284,17 @@ router.post(
     }
 
     try {
+      const geminiService = requireGeminiService(res)
+      if (!geminiService) {
+        return
+      }
+
       // Check rate limit
       await checkGeminiRateLimit(req.user._id, req.user.subscription === 'premium')
 
       // Fetch course and lesson for context
       const course = await Course.findById(courseId).select('title')
-      const lesson = lessonId ? await Lesson.findById(lessonId).select('title') : null
+      const lessonContext = lessonId ? await resolveLessonContext({ courseId, lessonId }) : null
 
       if (!course) {
         return res.status(404).json(new ApiResponse(404, null, 'Course not found'))
@@ -199,7 +311,7 @@ router.post(
       // Prepare context
       const contextData = {
         courseTitle: course.title,
-        lessonTitle: lesson?.title || 'General',
+        lessonTitle: lessonContext?.lessonTitle || 'General',
         studentLevel: req.user.skillLevel || 'intermediate',
         previousQuestions: chatHistory?.messages || [],
       }
@@ -288,19 +400,24 @@ router.post(
     }
 
     try {
+      const geminiService = requireGeminiService(res)
+      if (!geminiService) {
+        return
+      }
+
       // Check rate limit
       await checkGeminiRateLimit(req.user._id, req.user.subscription === 'premium')
 
-      // Fetch lesson content
-      const lesson = await Lesson.findById(lessonId)
-      if (!lesson) {
+      const lessonContext = await resolveLessonContext({ courseId, lessonId })
+
+      if (!lessonContext) {
         return res.status(404).json(new ApiResponse(404, null, 'Lesson not found'))
       }
 
-      logger.info(`📝 Summarizing lesson: ${lesson.title}`)
+      logger.info(`📝 Summarizing lesson: ${lessonContext.lessonTitle}`)
 
       // Call Gemini to generate summary
-      const summary = await geminiService.summarizeLesson(lesson.content, {
+      const summary = await geminiService.summarizeLesson(lessonContext.lessonContent, {
         length,
         format: 'markdown',
       })
@@ -378,6 +495,11 @@ router.post(
     }
 
     try {
+      const geminiService = requireGeminiService(res)
+      if (!geminiService) {
+        return
+      }
+
       // Check rate limit
       await checkGeminiRateLimit(req.user._id, req.user.subscription === 'premium')
 
@@ -441,6 +563,11 @@ router.post(
     }
 
     try {
+      const geminiService = requireGeminiService(res)
+      if (!geminiService) {
+        return
+      }
+
       // Check rate limit
       await checkGeminiRateLimit(req.user._id, req.user.subscription === 'premium')
 
