@@ -59,9 +59,9 @@ import {
   Info,
   Loader2,
 } from "lucide-react"
-import { useAuth } from "../contexts/AuthContext"
-import { apiService } from "../lib/api"
-import { LoadingSpinner } from "./ui/loading"
+import { useAuth } from "@/contexts/AuthContext"
+import apiService from "@/lib/api"
+import { LoadingSpinner } from "@/components/ui/loading"
 
 export default function CommunityModule() {
   const { user } = useAuth()
@@ -88,6 +88,121 @@ export default function CommunityModule() {
   const [discussionCategories, setDiscussionCategories] = useState([])
   const [liveActivities, setLiveActivities] = useState([])
 
+  const normalizePost = (post) => {
+    const authorName = post.author?.name || "Community Member"
+    const [firstName = "Community", lastName = "Member"] = authorName.split(" ")
+
+    return {
+      _id: post._id || post.id,
+      author: {
+        firstName: post.author?.firstName || firstName,
+        lastName: post.author?.lastName || lastName,
+        username: post.author?.username || post.author?.id || `user_${post._id || post.id}`,
+        avatar: post.author?.avatar || "/placeholder.svg?height=50&width=50&text=CM",
+        title: post.author?.title || "Community Member",
+        company: post.author?.company || "",
+        verified: post.author?.verified || false,
+        badge: post.author?.badge || (post.type === "achievement" ? "Top Contributor" : "Member"),
+      },
+      content: post.content || "",
+      media: post.media || [],
+      codeSnippet: post.codeSnippet || null,
+      tags: post.tags || [],
+      likes: post.likes ?? 0,
+      comments: post.comments ?? 0,
+      shares: post.shares ?? 0,
+      bookmarks: post.bookmarks ?? 0,
+      views: post.views ?? Math.max(0, (post.likes ?? 0) * 10),
+      createdAt: post.timestamp || post.createdAt || "Recently",
+      hasLiked: post.hasLiked ?? false,
+      hasBookmarked: post.hasBookmarked ?? false,
+      hasShared: post.hasShared ?? false,
+      isPinned: post.isPinned ?? false,
+      isSponsored: post.isSponsored ?? false,
+      category: post.category || "General",
+      readTime: post.readTime || "1 min read",
+      type: post.type || "discussion",
+    }
+  }
+
+  const normalizeMember = (member) => {
+    const nameParts = (member.name || `${member.firstName || ""} ${member.lastName || ""}`.trim() || "Member").split(" ")
+    const firstName = member.firstName || nameParts[0] || "Member"
+    const lastName = member.lastName || nameParts.slice(1).join(" ") || ""
+
+    return {
+      _id: member._id || member.id,
+      firstName,
+      lastName,
+      username: member.username || member.handle || `member_${member._id || member.id}`,
+      avatar: member.avatar || "/placeholder.svg?height=60&width=60&text=CM",
+      title: member.title || member.specialization || "Community Member",
+      company: member.company || "",
+      verified: member.verified ?? false,
+      badge: member.badge || "Member",
+      bio: member.bio || "",
+      skills: member.skills || [],
+      points: member.points ?? member.xp ?? 0,
+      contributions: member.contributions ?? member.coursesCompleted ?? 0,
+      followers: member.followers ?? 0,
+      reputation: member.reputation ?? 0,
+      responseTime: member.responseTime || "< 1 day",
+      location: member.location || "Remote",
+      joinDate: member.joinDate || new Date().toISOString(),
+      availability: member.availability || "Available",
+      isFollowing: member.isFollowing ?? false,
+    }
+  }
+
+  const normalizeEvent = (event) => ({
+    _id: event._id || event.id,
+    title: event.title,
+    description: event.description,
+    date: event.date,
+    time: event.time,
+    duration: event.duration || "",
+    type: event.type || "Workshop",
+    level: event.level || "Intermediate",
+    attendees: event.attendees ?? 0,
+    maxAttendees: event.maxAttendees ?? 0,
+    waitlist: event.waitlist ?? 0,
+    host: event.host || null,
+    speakers: event.speakers || [],
+    tags: event.tags || [],
+    isOnline: event.isOnline ?? true,
+    platform: event.platform || "Online",
+    price: event.price || "Free",
+    hasRecording: event.hasRecording ?? false,
+    rating: event.rating ?? null,
+    reviews: event.reviews ?? 0,
+    category: event.category || "General",
+    difficulty: event.difficulty || event.level || "Intermediate",
+    certificate: event.certificate ?? false,
+    location: event.location || "",
+    isRegistered: event.isRegistered ?? false,
+  })
+
+  const buildTrendingTopics = (posts = []) => {
+    const counts = new Map()
+
+    posts.forEach((post) => {
+      ;(post.tags || []).forEach((tag) => {
+        const key = String(tag).trim()
+        if (!key) return
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+    })
+
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name, count], index) => ({
+        name,
+        posts: count,
+        growth: `+${Math.max(8, count * 4 + index)}%`,
+      }))
+  }
+
   useEffect(() => {
     fetchCommunityData()
   }, [])
@@ -98,39 +213,39 @@ export default function CommunityModule() {
       setError(null)
 
       // Fetch all community-related data
-      const [feedResponse, eventsResponse, membersResponse, trendingResponse] = await Promise.all([
-        apiService.getCommunityFeed({ limit: 10, sort: sortBy }),
-        apiService.getCommunityEvents({ limit: 10, upcoming: true }),
-        apiService.getCommunityMembers({ limit: 10, sort: "reputation" }),
-        apiService.getTrendingTopics(),
+      const [feedResponse, eventsResponse, membersResponse] = await Promise.all([
+        apiService.getCommunityFeedData({ limit: 10, sort: sortBy }),
+        apiService.getCommunityEventsData({ limit: 10, upcoming: true }),
+        apiService.getCommunityMembersData({ limit: 10, sort: "reputation" }),
       ])
 
-      if (feedResponse.success) {
-        setCommunityPosts(feedResponse.data.posts || [])
-      }
+      const normalizedPosts = Array.isArray(feedResponse) ? feedResponse.map(normalizePost) : []
+      const normalizedEvents = Array.isArray(eventsResponse) ? eventsResponse.map(normalizeEvent) : []
+      const normalizedMembers = Array.isArray(membersResponse) ? membersResponse.map(normalizeMember) : []
 
-      if (eventsResponse.success) {
-        setUpcomingEvents(eventsResponse.data.events || [])
-      }
+      setCommunityPosts(normalizedPosts)
+      setUpcomingEvents(normalizedEvents)
+      setTopMembers(normalizedMembers)
+      setTrendingTopics(buildTrendingTopics(normalizedPosts))
+      setLiveActivities(
+        normalizedPosts.slice(0, 5).map((post, index) => ({
+          _id: post._id || index,
+          user: `${post.author.firstName} ${post.author.lastName}`.trim(),
+          action: post.type === "achievement" ? "shared an achievement" : "posted in the community",
+          timestamp: post.createdAt,
+          avatar: post.author.avatar,
+        }))
+      )
 
-      if (membersResponse.success) {
-        setTopMembers(membersResponse.data.members || [])
-      }
-
-      if (trendingResponse.success) {
-        setTrendingTopics(trendingResponse.data.topics || [])
-      }
-
-      // Set community stats
       setCommunityStats({
-        totalMembers: 15847,
-        activeToday: 1247,
-        totalPosts: 8934,
-        totalEvents: 156,
-        totalProjects: 423,
-        mentorshipSessions: 89,
-        jobPostings: 67,
-        successStories: 234,
+        totalMembers: normalizedMembers.length,
+        activeToday: Math.max(normalizedPosts.length, normalizedMembers.length),
+        totalPosts: normalizedPosts.length,
+        totalEvents: normalizedEvents.length,
+        totalProjects: normalizedPosts.filter((post) => post.type === "achievement").length,
+        mentorshipSessions: normalizedMembers.filter((member) => member.title?.toLowerCase().includes("mentor")).length,
+        jobPostings: normalizedPosts.filter((post) => post.type === "discussion").length,
+        successStories: normalizedPosts.filter((post) => post.type === "achievement").length,
       })
     } catch (err) {
       console.error("Error fetching community data:", err)
@@ -148,153 +263,56 @@ export default function CommunityModule() {
         successStories: 234,
       })
 
-      setTrendingTopics([
-        { name: "React 19", posts: 234, growth: "+15%" },
-        { name: "AI Development", posts: 189, growth: "+28%" },
-        { name: "Remote Work", posts: 156, growth: "+8%" },
-        { name: "Web3", posts: 143, growth: "+22%" },
-        { name: "TypeScript", posts: 128, growth: "+12%" },
-        { name: "DevOps", posts: 98, growth: "+18%" },
-      ])
-
-      setCommunityPosts([
+      const fallbackPosts = [
         {
-          _id: 1,
-          type: "achievement",
+          _id: "fallback-post",
           author: {
-            firstName: "Sarah",
-            lastName: "Chen",
-            username: "sarahdev",
-            avatar: "/placeholder.svg?height=50&width=50&text=SC",
-            title: "Senior Full Stack Developer",
-            company: "Google",
-            level: "Expert",
-            badge: "Top Contributor",
-            verified: true,
-            followers: 2847,
-            following: 456,
-            joinDate: "2022-01-15",
-            location: "San Francisco, CA",
-            skills: ["React", "Node.js", "TypeScript", "AWS"],
-            reputation: 4.9,
-            totalPosts: 234,
-            totalLikes: 5678,
+            firstName: "Community",
+            lastName: "Member",
+            username: "community",
+            avatar: "/placeholder.svg?height=50&width=50&text=CM",
+            title: "Community Member",
+            badge: "Member",
+            verified: false,
           },
-          content:
-            "🎉 Just shipped a major feature that reduces our app's bundle size by 40%! Used React 18's new concurrent features and implemented smart code splitting. The performance improvements are incredible - users are loving the faster load times!",
-          media: [
-            {
-              type: "image",
-              url: "/placeholder.svg?height=400&width=600&text=Performance+Dashboard",
-              caption: "Before vs After Performance Metrics",
-            },
-          ],
-          codeSnippet: {
-            language: "javascript",
-            code: `// Smart code splitting with React.lazy
-const LazyComponent = React.lazy(() => 
-  import('./HeavyComponent').then(module => ({
-    default: module.HeavyComponent
-  }))
-);`,
-          },
-          likes: 156,
-          comments: 23,
-          shares: 12,
-          bookmarks: 45,
-          views: 1234,
-          createdAt: "2 hours ago",
-          tags: ["React", "Performance", "Web Development", "JavaScript"],
-          hasLiked: false,
-          hasBookmarked: true,
-          hasShared: false,
-          isPinned: false,
-          isSponsored: false,
-          category: "Technical",
-          readTime: "3 min read",
+          content: "Community feed is loading with fallback content.",
+          tags: ["community"],
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          bookmarks: 0,
+          views: 0,
+          createdAt: "Recently",
+          readTime: "1 min read",
+          type: "discussion",
+          media: [],
+          codeSnippet: null,
         },
-      ])
+      ]
 
-      setUpcomingEvents([
-        {
-          _id: 1,
-          title: "React 19 Deep Dive Workshop",
-          description:
-            "Comprehensive workshop covering React 19's new features, concurrent rendering, and performance optimizations.",
-          date: "2024-03-15",
-          time: "2:00 PM EST",
-          duration: "3 hours",
-          type: "Workshop",
-          level: "Intermediate",
-          attendees: 234,
-          maxAttendees: 300,
-          waitlist: 45,
-          host: {
-            firstName: "Sarah",
-            lastName: "Chen",
-            avatar: "/placeholder.svg?height=40&width=40&text=SC",
-            title: "Senior Developer at Google",
-            verified: true,
-          },
-          speakers: [
-            {
-              firstName: "Sarah",
-              lastName: "Chen",
-              title: "Senior Developer at Google",
-              avatar: "/placeholder.svg?height=40&width=40&text=SC",
-            },
-          ],
-          tags: ["React", "Frontend", "Advanced", "Hands-on"],
-          isOnline: true,
-          platform: "Zoom",
-          price: "Free",
-          hasRecording: true,
-          rating: 4.8,
-          reviews: 156,
-          category: "Technical",
-          difficulty: "Intermediate",
-          certificate: true,
-        },
-      ])
-
-      setTopMembers([
-        {
-          _id: 1,
-          firstName: "Sarah",
-          lastName: "Chen",
-          username: "sarahdev",
-          avatar: "/placeholder.svg?height=60&width=60&text=SC",
-          title: "Senior Full Stack Developer",
-          company: "Google",
-          level: "Expert",
-          badge: "Top Contributor",
-          verified: true,
-          points: 15420,
-          contributions: 234,
-          followers: 2847,
-          following: 456,
-          joinDate: "2022-01-15",
-          location: "San Francisco, CA",
-          skills: ["React", "Node.js", "TypeScript", "AWS", "GraphQL"],
-          bio: "Passionate about building scalable web applications and mentoring junior developers.",
-          reputation: 4.9,
-          responseTime: "< 2 hours",
-          languages: ["English", "Mandarin"],
-          timezone: "PST",
-          availability: "Available for mentoring",
-        },
-      ])
-
+      setCommunityPosts(fallbackPosts)
+      setUpcomingEvents([])
+      setTopMembers([])
+      setTrendingTopics(buildTrendingTopics(fallbackPosts))
       setLiveActivities([
         {
           _id: 1,
-          type: "new_member",
-          user: "Emma Wilson",
-          action: "joined the community",
-          timestamp: "2 minutes ago",
-          avatar: "/placeholder.svg?height=32&width=32&text=EW",
+          user: "Community",
+          action: "is getting started",
+          timestamp: "Just now",
+          avatar: "/placeholder.svg?height=32&width=32&text=CM",
         },
       ])
+      setCommunityStats({
+        totalMembers: 0,
+        activeToday: 0,
+        totalPosts: 0,
+        totalEvents: 0,
+        totalProjects: 0,
+        mentorshipSessions: 0,
+        jobPostings: 0,
+        successStories: 0,
+      })
     } finally {
       setLoading(false)
     }
@@ -315,8 +333,7 @@ const LazyComponent = React.lazy(() =>
         ),
       )
 
-      // Make API call (implement like endpoint)
-      // await apiService.likePost(postId)
+      await apiService.likePost(postId)
     } catch (err) {
       console.error("Error liking post:", err)
     }
@@ -336,7 +353,7 @@ const LazyComponent = React.lazy(() =>
         ),
       )
 
-      // await apiService.bookmarkPost(postId)
+      // Bookmarking is currently local-only in the backend surface.
     } catch (err) {
       console.error("Error bookmarking post:", err)
     }
@@ -348,7 +365,7 @@ const LazyComponent = React.lazy(() =>
         prev.map((post) => (post._id === postId ? { ...post, shares: post.shares + 1 } : post)),
       )
 
-      // await apiService.sharePost(postId)
+      // Sharing is currently local-only in the backend surface.
     } catch (err) {
       console.error("Error sharing post:", err)
     }
@@ -356,14 +373,12 @@ const LazyComponent = React.lazy(() =>
 
   const handleJoinEvent = async (eventId) => {
     try {
-      const response = await apiService.registerForEvent(eventId)
-      if (response.success) {
-        setUpcomingEvents((prev) =>
-          prev.map((event) =>
-            event._id === eventId ? { ...event, attendees: event.attendees + 1, isRegistered: true } : event,
-          ),
-        )
-      }
+      await apiService.registerForEvent(eventId)
+      setUpcomingEvents((prev) =>
+        prev.map((event) =>
+          event._id === eventId ? { ...event, attendees: event.attendees + 1, isRegistered: true } : event,
+        ),
+      )
     } catch (err) {
       console.error("Error joining event:", err)
     }
@@ -385,17 +400,15 @@ const LazyComponent = React.lazy(() =>
     if (newPostContent.trim()) {
       setIsLoading(true)
       try {
-        const response = await apiService.createPost({
+        const createdPost = await apiService.createPost({
           content: newPostContent.trim(),
           type: selectedPostType,
         })
 
-        if (response.success) {
-          // Add new post to the beginning of the feed
-          setCommunityPosts((prev) => [response.data.post, ...prev])
-          setNewPostContent("")
-          setShowCreatePost(false)
-        }
+        setCommunityPosts((prev) => [normalizePost(createdPost), ...prev])
+        setTrendingTopics((prev) => buildTrendingTopics([createdPost, ...communityPosts]))
+        setNewPostContent("")
+        setShowCreatePost(false)
       } catch (err) {
         console.error("Error creating post:", err)
       } finally {

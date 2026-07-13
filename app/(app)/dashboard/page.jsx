@@ -8,6 +8,7 @@ import { GrowWidget } from "@/components/modules/dashboard/grow-widget"
 import { EarnWidget } from "@/components/modules/dashboard/earn-widget"
 import { ActivityWidget } from "@/components/modules/dashboard/activity-widget"
 import ProtectedRoute from "@/components/protected-route"
+import apiService from "@/lib/api"
 
 export default function DashboardPage() {
   const [data, setData] = useState({
@@ -25,31 +26,25 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem("token")
-        const headers = {
-          Authorization: `Bearer ${token}`
-        }
-        const [overviewRes, activityRes, earnRes, growRes] = await Promise.all([
-          fetch('http://localhost:5000/api/dashboard/overview', { headers }).catch(() => ({ json: () => ({}) })),
-          fetch('http://localhost:5000/api/activity', { headers }).catch(() => ({ json: () => ({}) })),
-          fetch('http://localhost:5000/api/earn/projects', { headers }).catch(() => ({ json: () => ({}) })),
-          fetch('http://localhost:5000/api/grow/projects', { headers }).catch(() => ({ json: () => ({}) }))
+        const [userRes, dashboardRes, activityRes, earnRes, growRoadmapRes, growProjectsRes, earnProjectsRes] = await Promise.all([
+          apiService.getCurrentUser().catch(() => null),
+          apiService.getUserDashboard().catch(() => null),
+          apiService.getActivityFeed().catch(() => null),
+          apiService.getEarnDashboard().catch(() => null),
+          apiService.getGrowRoadmapData().catch(() => null),
+          apiService.getGrowProjectsData().catch(() => null),
+          apiService.getEarnProjects({ limit: 10 }).catch(() => null),
         ])
 
-        const overview = await overviewRes.json()
-        const activity = await activityRes.json()
-        const earn = await earnRes.json()
-        const grow = await growRes.json()
-
         setData({
-          user: overview.user || { name: "Explorer", level: 1, xp: 0, nextLevelXp: 1000 },
-          stats: overview.stats || { coursesCompleted: 0, skillsLearned: 0, activeProjects: 0, totalEarnings: 0 },
-          courses: overview.courses || [],
-          roadmap: overview.roadmap || null,
-          earnings: overview.earnings || { pending: 0, available: 0 },
-          activities: activity.activities || activity || [],
-          earnProjects: earn.projects || earn || [],
-          growProjects: grow.projects || grow || []
+          user: userRes?.user || { name: "Explorer", level: 1, xp: 0, nextLevelXp: 1000 },
+          stats: dashboardRes?.stats || { coursesCompleted: 0, skillsLearned: 0, activeProjects: 0, totalEarnings: 0 },
+          courses: dashboardRes?.recentCourses || [],
+          roadmap: growRoadmapRes || null,
+          earnings: earnRes || { pending: 0, available: 0 },
+          activities: activityRes?.activities || activityRes || [],
+          earnProjects: earnProjectsRes || [],
+          growProjects: growProjectsRes || []
         })
       } catch (error) {
         console.error("Failed to load dashboard data:", error)
