@@ -6,15 +6,9 @@ const User = require("../models/User")
 const { auth } = require("../middleware/auth")
 const { setCookie, clearCookie } = require("../middleware/cookieAuth")
 const { ApiResponse } = require("../utils/apiResponse")
-const { csrfProtection, getCsrfToken } = require("../middleware/csrfProtection")
 const { authLimiter } = require("../middleware/rateLimiting")
 
 const router = express.Router()
-
-// @route   GET /api/auth/csrf-token
-// @desc    Get CSRF token for forms
-// @access  Public
-router.get("/csrf-token", csrfProtection, getCsrfToken)
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -22,7 +16,6 @@ router.get("/csrf-token", csrfProtection, getCsrfToken)
 router.post(
   "/register",
   authLimiter,
-  csrfProtection,
   [
     body("firstName")
       .trim()
@@ -94,7 +87,6 @@ router.post(
 router.post(
   "/login",
   authLimiter,
-  csrfProtection,
   [
     body("email").isEmail().normalizeEmail().withMessage("Please enter a valid email"),
     body("password").exists().withMessage("Password is required"),
