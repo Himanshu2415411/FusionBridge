@@ -22,28 +22,27 @@ export default function GrowPage() {
       try {
         const [roadmapRes, projectsRes, resumeRes, interviewRes] =
           await Promise.allSettled([
-            apiService.getGrowRoadmap(),
-            apiService.getGrowProjects(),
-            apiService.getGrowResume(),
-            apiService.getGrowInterview(),
+            apiService.getGrowRoadmapData(),
+            apiService.getGrowProjectsData(),
+            apiService.getGrowResumeData(),
+            apiService.getGrowInterviewData(),
           ])
 
         if (roadmapRes.status === "fulfilled") {
-          setRoadmap(roadmapRes.value?.data || roadmapRes.value || {})
+          setRoadmap(roadmapRes.value || {})
         }
         if (projectsRes.status === "fulfilled") {
-          const d = projectsRes.value?.data
-          setProjects(Array.isArray(d) ? d : d?.projects || [])
+          setProjects(Array.isArray(projectsRes.value) ? projectsRes.value : [])
         }
         if (resumeRes.status === "fulfilled") {
-          setResume(resumeRes.value?.data || resumeRes.value || {})
+          setResume(resumeRes.value || {})
         }
         if (interviewRes.status === "fulfilled") {
-          const d = interviewRes.value?.data
+          const questions = Array.isArray(interviewRes.value) ? interviewRes.value : []
           setInterview({
-            questions: Array.isArray(d) ? d : d?.questions || [],
-            role: (Array.isArray(d) ? d[0]?.role : d?.role) || "General",
-            readinessScore: d?.readinessScore,
+            questions,
+            role: questions[0]?.role || "General",
+            readinessScore: interviewRes.value?.readinessScore,
           })
         }
       } finally {
