@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
+import apiService from "@/lib/api"
 import { LessonPlayer } from "@/components/modules/unibridge/lesson-player"
 import { LessonSidebar } from "@/components/modules/unibridge/lesson-sidebar"
 
@@ -19,31 +20,15 @@ export default function LearnPage({ params }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const getLessonId = (lessonItem) => lessonItem?._id || lessonItem?.id
+
   useEffect(() => {
     if (!normalizedCourseId || !normalizedLessonId) return
 
-    const fetchCourse = async () => {
+    const loadLesson = async () => {
       try {
-        const token = localStorage.getItem("token")
-
-        const res = await fetch(
-          `http://localhost:5000/api/courses/${normalizedCourseId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        )
-
-        const data = await res.json()
-
-        console.log("COURSE DATA:", data)
-
-        if (!res.ok) {
-          throw new Error(data.message || "Failed to load course")
-        }
-
-        const courseData = data.data || data.course || data
+        const courseResponse = await apiService.getCourse(normalizedCourseId)
+        const courseData = courseResponse?.course || courseResponse
 
         if (!courseData || !courseData.lessons) {
           throw new Error("Invalid course data: lessons not found")
@@ -52,9 +37,7 @@ export default function LearnPage({ params }) {
         setCourse(courseData)
 
         // LESSON MATCHING - Find lesson by _id
-        const currentLesson = courseData.lessons.find(
-          (l) => l._id === normalizedLessonId
-        )
+        const currentLesson = courseData.lessons.find((lessonItem) => getLessonId(lessonItem) === normalizedLessonId)
 
         if (!currentLesson) {
           throw new Error("Lesson not found")
@@ -62,16 +45,17 @@ export default function LearnPage({ params }) {
 
         setLesson(currentLesson)
 
-        const progressRes = await fetch(
-          `http://localhost:5000/api/progress/${normalizedCourseId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        )
-        const progressDataRes = await progressRes.json()
-        setProgress(progressDataRes.progress || progressDataRes || { completedLessons: [] })
+        setProgress({
+          ...(courseResponse?.progress || {}),
+          completedLessons: (courseResponse?.completedLessons || []).map((lessonItem) =>
+            lessonItem?.toString?.() || lessonItem
+          ),
+        })
+
+        await apiService.trackLessonAccess({
+          courseId: normalizedCourseId,
+          lessonId: normalizedLessonId,
+        })
       } catch (err) {
         console.error(err)
         setError(err.message)
@@ -80,7 +64,7 @@ export default function LearnPage({ params }) {
       }
     }
 
-    fetchCourse()
+    loadLesson()
   }, [normalizedCourseId, normalizedLessonId])
 
   if (loading) {
@@ -95,30 +79,34 @@ export default function LearnPage({ params }) {
     return <div className="text-center py-20 text-red-500 min-h-screen bg-[#FFF4A4]">Course or lesson not found.</div>
   }
 
-  const currentLessonIndex = course.lessons.findIndex((l) => l._id === normalizedLessonId)
+  const currentLessonIndex = course.lessons.findIndex((lessonItem) => getLessonId(lessonItem) === normalizedLessonId)
 
   const handleLessonComplete = async () => {
     try {
-      const token = localStorage.getItem("token")
-      await fetch('http://localhost:5000/api/progress/lesson-complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ courseId: normalizedCourseId, lessonId: normalizedLessonId })
+      await apiService.markLessonComplete({
+        courseId: normalizedCourseId,
+        lessonId: normalizedLessonId,
       })
       
       // Update local progress state
       setProgress(prev => ({
         ...prev,
-        completedLessons: [...(prev?.completedLessons || []), normalizedLessonId]
+        completedLessons: Array.from(new Set([...(prev?.completedLessons || []), normalizedLessonId])),
+        completedLessonsCount: (prev?.completedLessonsCount || prev?.completedLessons?.length || 0) + (prev?.completedLessons?.includes(normalizedLessonId) ? 0 : 1),
+        progressPercent: course.lessons.length > 0
+          ? Math.round(
+              ((prev?.completedLessonsCount || prev?.completedLessons?.length || 0) + (prev?.completedLessons?.includes(normalizedLessonId) ? 0 : 1)) /
+                course.lessons.length * 100
+            )
+          : 0,
+        isCompleted: course.lessons.length > 0 &&
+          ((prev?.completedLessonsCount || prev?.completedLessons?.length || 0) + (prev?.completedLessons?.includes(normalizedLessonId) ? 0 : 1)) === course.lessons.length,
       }))
       
       // Navigate to next lesson if available, else redirect to completion
       if (currentLessonIndex < course.lessons.length - 1) {
         const nextLesson = course.lessons[currentLessonIndex + 1]
-        router.push(`/unibridge/learn/${normalizedCourseId}/${nextLesson._id}`)
+        router.push(`/unibridge/learn/${normalizedCourseId}/${getLessonId(nextLesson)}`)
       } else {
         router.push(`/unibridge/completed/${normalizedCourseId}`)
       }
@@ -130,7 +118,7 @@ export default function LearnPage({ params }) {
   const handlePrevious = () => {
     if (currentLessonIndex > 0) {
       const prevLesson = course.lessons[currentLessonIndex - 1]
-      router.push(`/unibridge/learn/${normalizedCourseId}/${prevLesson._id}`)
+      router.push(`/unibridge/learn/${normalizedCourseId}/${getLessonId(prevLesson)}`)
     }
   }
 
@@ -150,6 +138,7 @@ export default function LearnPage({ params }) {
           <LessonPlayer 
             lesson={lesson} 
             course={course}
+            progress={progress}
             onComplete={handleLessonComplete}
             onPrevious={handlePrevious}
             isFirst={currentLessonIndex === 0}

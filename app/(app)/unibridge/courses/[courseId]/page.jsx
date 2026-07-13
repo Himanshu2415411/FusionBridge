@@ -24,7 +24,8 @@ export default function CourseDetailPage() {
           }
         })
         const data = await response.json()
-        setCourse(data.data || data.course || data)
+
+        setCourse(data.data?.course || data.course || data.data || data)
       } catch (error) {
         console.error("Failed to fetch course details:", error)
       } finally {

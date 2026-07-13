@@ -8,21 +8,26 @@ export default function CourseExplorerPage() {
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/courses')
-        const data = await response.json()
-        setCourses(data.courses || data || [])
-      } catch (error) {
-        console.error("Failed to fetch courses:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
+useEffect(() => {
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/courses", {
+        credentials: "include",
+      })
 
-    fetchCourses()
-  }, [])
+      const result = await response.json()
+
+      setCourses(result.data || [])
+    } catch (error) {
+      console.error("Failed to fetch courses:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  fetchCourses()
+}, [])
+
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-8 space-y-8 bg-[#FFF4A4] min-h-screen">
