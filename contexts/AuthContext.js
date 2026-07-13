@@ -29,9 +29,9 @@ export function AuthProvider({ children }) {
 
     try {
       const res = await apiService.getCurrentUser()
-      if (res?.success && res.user) {
-        setUser(res.user)
-      } else {
+      if (res?.user) {
+      setUser(res.user)
+      }else {
         logout()
       }
     } catch {
@@ -42,14 +42,37 @@ export function AuthProvider({ children }) {
   }
 
   const login = async (credentials) => {
-    const res = await apiService.login(credentials)
-    if (res?.success && res.token) {
-      localStorage.setItem("token", res.token)
-      setUser(res.user)
-      return { success: true }
+  try {
+    const userData = await apiService.login(credentials)
+
+    setUser(userData.user)
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
     }
-    return { success: false, error: res?.message || "Login failed" }
   }
+}
+
+
+
+
+const register = async (userData) => {
+  try {
+    const res = await apiService.register(userData)
+
+    setUser(res.user)
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
 
   const logout = () => {
     localStorage.removeItem("token")
@@ -61,6 +84,7 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated: Boolean(user),
     login,
+    register,
     logout,
   }
 
