@@ -24,6 +24,7 @@ const cron = require("node-cron")
 const { resetWeeklyXP } = require("./utils/weeklyReset")
 const growRoutes = require("./routes/grow")
 const registerEventListeners = require("./utils/registerEventListeners")
+const paymentRoutes = require("./routes/payment")
 
 // DB connection
 const connectDB = require("./config/database")
@@ -52,7 +53,14 @@ app.use(
 )
 
 // ✅ BODY PARSING — MUST COME BEFORE ROUTES
-app.use(express.json({ limit: "10mb" }))
+app.use(
+  express.json({
+    limit: "10mb",
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString("utf8")
+    },
+  })
+)
 app.use(express.urlencoded({ extended: true, limit: "10mb" }))
 app.use(cookieParser())
 
@@ -92,6 +100,7 @@ app.use("/api/activity", require("./routes/activity"))
 app.use("/api/search", require("./routes/search"))
 app.use("/api/leaderboard", require("./routes/leaderboard"))
 app.use("/api/ai", require("./routes/ai"))
+app.use("/api/payments", paymentRoutes)
 
 
 //Auto Run Weekly Reset

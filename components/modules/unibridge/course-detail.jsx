@@ -8,11 +8,40 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PlayCircle, BookOpen, Loader2 } from "lucide-react"
 import apiService from "@/lib/api"
+import { useErrorHandler } from "@/hooks/use-error-handler"
+
+const loadRazorpayScript = () => {
+  if (typeof window === "undefined") {
+    return Promise.resolve(false)
+  }
+
+  if (window.Razorpay) {
+    return Promise.resolve(true)
+  }
+
+  return new Promise((resolve) => {
+    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true), { once: true })
+      existingScript.addEventListener("error", () => resolve(false), { once: true })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = "https://checkout.razorpay.com/v1/checkout.js"
+    script.async = true
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 export function CourseDetail({ course }) {
   const router = useRouter()
   const [isEnrolling, setIsEnrolling] = useState(false)
   const [isEnrolled, setIsEnrolled] = useState(false)
+  const { handleError, handleWarning, handleSuccess } = useErrorHandler()
 
   useEffect(() => {
     setIsEnrolled(course?.isEnrolled || false)
@@ -26,7 +55,7 @@ export function CourseDetail({ course }) {
       const firstLesson = course.lessons?.[0]
 
       if (!firstLesson) {
-        alert("No lessons available")
+        handleWarning("No lessons available")
         return
       }
 
@@ -34,27 +63,96 @@ export function CourseDetail({ course }) {
       return
     }
 
-    // Otherwise, enroll in the course
     try {
       setIsEnrolling(true)
-
-      await apiService.enrollInCourse(course._id)
 
       const firstLesson = course.lessons?.[0]
 
       if (!firstLesson) {
-        alert("No lessons available")
+        throw new Error("No lessons available")
+      }
+
+      if (Number(course.price) <= 0) {
+        await apiService.enrollInCourse(course._id)
+
+        setIsEnrolled(true)
+        handleSuccess("Enrollment completed successfully")
+        router.push(`/unibridge/learn/${course._id}/${firstLesson._id}`)
         return
       }
 
-      setIsEnrolled(true)
+      const paymentOrder = await apiService.createPayment({
+        itemType: "course",
+        itemId: course._id,
+        metadata: {
+          courseTitle: course.title,
+          courseCategory: course.category,
+        },
+      })
 
-      router.push(`/unibridge/learn/${course._id}/${firstLesson._id}`)
+      const scriptLoaded = await loadRazorpayScript()
+
+      if (!scriptLoaded) {
+        throw new Error("Unable to load Razorpay checkout")
+      }
+
+      const RazorpayCheckout = window.Razorpay
+
+      if (!RazorpayCheckout) {
+        throw new Error("Razorpay checkout is unavailable")
+      }
+
+      const checkout = new RazorpayCheckout({
+        key: paymentOrder.keyId,
+        amount: paymentOrder.order.amount,
+        currency: paymentOrder.order.currency,
+        order_id: paymentOrder.order.id,
+        name: "FusionBridge",
+        description: paymentOrder.description || course.title,
+        notes: {
+          itemType: "course",
+          itemId: course._id,
+          courseTitle: course.title,
+        },
+        modal: {
+          ondismiss: () => {
+            setIsEnrolling(false)
+            handleWarning("Payment cancelled")
+          },
+        },
+        handler: async (response) => {
+          try {
+            await apiService.verifyPayment({
+              orderId: paymentOrder.order.id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              itemType: "course",
+              itemId: course._id,
+            })
+
+            setIsEnrolled(true)
+            handleSuccess("Payment verified successfully")
+            router.push(`/unibridge/learn/${course._id}/${firstLesson._id}`)
+          } catch (verificationError) {
+            handleError(verificationError, "CourseDetail.verifyPayment")
+          } finally {
+            setIsEnrolling(false)
+          }
+        },
+        theme: {
+          color: "#F97A00",
+        },
+      })
+
+      checkout.on("payment.failed", (response) => {
+        setIsEnrolling(false)
+        handleError(new Error(response?.error?.description || "Payment failed"), "CourseDetail.paymentFailed")
+      })
+
+      checkout.open()
     } catch (error) {
-      console.error("Enroll Error:", error.message)
-      alert(error.message)
-    } finally {
       setIsEnrolling(false)
+      handleError(error, "CourseDetail.handleEnroll")
     }
   }
 
@@ -82,7 +180,7 @@ export function CourseDetail({ course }) {
             className="bg-[#F97A00] hover:bg-[#F97A00]/90 text-white px-8 py-6 text-lg rounded-xl shadow-md"
           >
             {isEnrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-            {isEnrolling ? "Enrolling..." : isEnrolled ? "Go to Course" : "Enroll Now"}
+            {isEnrolling ? "Processing..." : isEnrolled ? "Go to Course" : Number(course.price) > 0 ? "Pay & Enroll" : "Enroll Now"}
           </Button>
         </CardContent>
       </Card>

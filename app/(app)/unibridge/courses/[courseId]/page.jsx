@@ -6,6 +6,7 @@ import { CourseDetail } from "@/components/modules/unibridge/course-detail"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
+import apiService from "@/lib/api"
 
 export default function CourseDetailPage() {
   const { courseId } = useParams()
@@ -17,15 +18,8 @@ export default function CourseDetailPage() {
 
     const fetchCourseDetail = async () => {
       try {
-        const token = localStorage.getItem("token")
-        const response = await fetch(`http://localhost:5000/api/courses/${courseId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
-        const data = await response.json()
-
-        setCourse(data.data?.course || data.course || data.data || data)
+        const response = await apiService.getCourse(courseId)
+        setCourse(response?.course || response)
       } catch (error) {
         console.error("Failed to fetch course details:", error)
       } finally {
