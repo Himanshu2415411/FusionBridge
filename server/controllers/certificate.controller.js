@@ -1,7 +1,7 @@
 const Certificate = require("../models/Certificate")
 const User = require("../models/User")
 const Course = require("../models/Course")
-const { ApiResponse } = require("../utils/apiResponse")
+const  {ApiResponse}  = require("../utils/apiResponse")
 const {
   createCertificate,
   verifyCertificate: verifySignedCert,
